@@ -114,8 +114,9 @@ function InterviewRecord({ interview, criteria }: { interview: RecordInterview; 
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {interview.evaluations.map((e) => (
-                <tr key={e.panelist_name}>
+              {interview.evaluations.map((e, i) => (
+                // Display names needn't be unique and evaluations carry no id; the server's order is stable.
+                <tr key={i}>
                   <td className="py-1 pr-2 font-medium">{e.panelist_name}</td>
                   {criteria.map((c) => (
                     <td key={c.key} className="py-1 pr-2 tabular-nums">

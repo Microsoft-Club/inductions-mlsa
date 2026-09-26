@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActionProvider } from '../../../src/components/ActionProvider.tsx';
 import { ToastProvider } from '../../../src/components/Toasts.tsx';
 import { ApiError } from '../../../src/lib/api.ts';
@@ -22,7 +22,7 @@ function Chat() {
 }
 
 function renderChat(api: FakeApi) {
-  render(
+  return render(
     <ApiProvider api={api}>
       <ToastProvider>
         <ActionProvider>
@@ -34,6 +34,8 @@ function renderChat(api: FakeApi) {
 }
 
 const log = () => screen.getByRole('log', { name: 'Messages' });
+
+beforeEach(() => sessionStorage.clear());
 
 describe('the panel discussion', () => {
   it("shows the interview's messages, marking your own", async () => {
@@ -97,5 +99,33 @@ describe('the panel discussion', () => {
     act(() => api.topics.interview.event());
     expect(await within(log()).findByText('Ask about deadlines.')).toBeInTheDocument();
     expect(api.subscribeInterview).toHaveBeenCalledWith('i7');
+  });
+});
+
+describe('coming back to an interview', () => {
+  it('still has the message that failed and the text being typed, and retries with the same id', async () => {
+    const api = fakeApi({
+      interviewMessages: vi.fn(async () => existing),
+      postMessage: vi.fn(async () => {
+        throw new ApiError("Can't reach the server");
+      }),
+    });
+    const first = renderChat(api);
+    await within(log()).findByText('Agreed.');
+    await userEvent.type(screen.getByRole('textbox', { name: 'Message' }), 'Ask about Docker{Enter}');
+    expect(await within(log()).findByText('Not sent')).toBeInTheDocument();
+    await userEvent.type(screen.getByRole('textbox', { name: 'Message' }), 'Half typed');
+    first.unmount(); // the next candidate was sent in; later the panelist opens this interview again
+
+    renderChat(api);
+    await within(log()).findByText('Agreed.');
+    expect(within(log()).getByText('Ask about Docker')).toBeInTheDocument();
+    expect(within(log()).getByText('Not sent')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Message' })).toHaveValue('Half typed');
+
+    const id = vi.mocked(api.postMessage).mock.calls[0][2];
+    vi.mocked(api.postMessage).mockImplementation(async (_interviewId, body, messageId) => message(messageId, 'u-panelist', 'Test panelist', body));
+    await userEvent.click(within(log()).getByRole('button', { name: 'Retry' }));
+    expect(api.postMessage).toHaveBeenLastCalledWith('i7', 'Ask about Docker', id);
   });
 });

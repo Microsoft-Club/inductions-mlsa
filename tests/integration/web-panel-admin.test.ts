@@ -134,7 +134,7 @@ describe('panelist, admin and results API', () => {
 
     const exported = (await admin.evaluationsExport()).filter((e) => e.reg_number === reg);
     expect(exported).toHaveLength(1);
-    expect(sortedKeys(exported[0])).toEqual(['comments', 'full_name', 'number', 'panel', 'panelist', 'recommendation', 'reg_number', 'scores', 'submitted_at']);
+    expect(sortedKeys(exported[0])).toEqual(['comments', 'full_name', 'number', 'panel', 'panelist', 'recommendation', 'reg_number', 'scores', 'submitted_at', 'updated_at']);
 
     await admin.setDecision(candidateId, 'selected');
     expect(await anon.publishedResults()).not.toContainEqual({ full_name: 'Plan Three Tester', reg_number: reg });
@@ -172,9 +172,15 @@ describe('panelist, admin and results API', () => {
     await admin.updateSettings('Fall 2026 (test)', 20);
     expect(await admin.induction()).toMatchObject({ name: 'Fall 2026 (test)', target_interview_minutes: 20 });
     const oldKey = await admin.getDisplayKey();
-    const newKey = await admin.regenerateDisplayKey();
-    expect(newKey).not.toBe(oldKey);
-    expect(await anon.displaySnapshot(oldKey)).toBeNull();
-    expect((await anon.displaySnapshot(newKey))?.induction_name).toBe('Fall 2026 (test)');
+    try {
+      const newKey = await admin.regenerateDisplayKey();
+      expect(newKey).not.toBe(oldKey);
+      expect(await anon.displaySnapshot(oldKey)).toBeNull();
+      expect((await anon.displaySnapshot(newKey))?.induction_name).toBe('Fall 2026 (test)');
+    } finally {
+      // Put the old key back, so a projector left open on the local link keeps working.
+      await service.from('inductions').update({ display_key: oldKey }).eq('is_active', true);
+    }
+    expect(await admin.getDisplayKey()).toBe(oldKey);
   });
 });

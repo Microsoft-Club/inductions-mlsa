@@ -3,6 +3,7 @@ import { buttonClasses } from '../components/ActionButton.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
 import { parseServerTime } from '../lib/clock.ts';
 import type { LiveSnapshot } from '../lib/useLiveSnapshot.ts';
+import { chatDraftKey, forgetUnsent, loadChatDraft, saveChatDraft } from './chatDrafts.ts';
 import type { InterviewLive } from './useInterviewLive.ts';
 
 const MAX_LENGTH = 2000;
@@ -17,27 +18,39 @@ interface ChatPanelProps {
   interviewId: string;
   live: LiveSnapshot<InterviewLive>;
   meId: string;
+  /** The phone's Chat tab is open. A hidden list can't scroll, so it scrolls to the newest message on opening. */
+  tabOpen?: boolean;
 }
 
 /** The panel's discussion about this candidate. Your messages show at once and are matched to the saved copy. */
-export function ChatPanel({ interviewId, live, meId }: ChatPanelProps) {
+export function ChatPanel({ interviewId, live, meId, tabOpen = false }: ChatPanelProps) {
   const api = useApi();
-  const [draft, setDraft] = useState('');
-  const [pending, setPending] = useState<Pending[]>([]);
+  const draftKey = chatDraftKey(meId, interviewId);
+  // Text and messages not yet on the server come back when this interview is shown again. A message
+  // still "sending" when it was closed comes back as not sent; Retry reuses its id, so it can't post twice.
+  const [restored] = useState(() => loadChatDraft(draftKey));
+  const [draft, setDraft] = useState(restored.text);
+  const [pending, setPending] = useState<Pending[]>(() => restored.unsent.map((u) => ({ ...u, failed: true })));
   const listRef = useRef<HTMLOListElement>(null);
   const saved = live.data?.messages ?? [];
   const savedIds = new Set(saved.map((m) => m.id));
   const unsaved = pending.filter((p) => !savedIds.has(p.id));
+  const unsent = JSON.stringify(unsaved.map(({ id, body }) => ({ id, body })));
+
+  useEffect(() => {
+    saveChatDraft(draftKey, { text: draft, unsent: JSON.parse(unsent) });
+  }, [draftKey, draft, unsent]);
 
   useEffect(() => {
     const list = listRef.current;
     if (list) list.scrollTop = list.scrollHeight;
-  }, [saved.length, unsaved.length]);
+  }, [saved.length, unsaved.length, tabOpen]);
 
   async function deliver(id: string, body: string) {
     setPending((list) => list.map((p) => (p.id === id ? { ...p, failed: false } : p)));
     try {
       await api.postMessage(interviewId, body, id); // the same id on a retry, so it can't post twice
+      forgetUnsent(draftKey, id);
       live.reload();
     } catch {
       setPending((list) => list.map((p) => (p.id === id ? { ...p, failed: true } : p)));
@@ -60,7 +73,7 @@ export function ChatPanel({ interviewId, live, meId }: ChatPanelProps) {
         <h2 className="font-semibold">Discussion</h2>
         {live.status === 'reconnecting' && <span className="text-xs font-medium text-amber-700">Reconnecting…</span>}
       </header>
-      <ol ref={listRef} role="log" aria-label="Messages" className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
+      <ol ref={listRef} role="log" aria-label="Messages" className="max-h-[60vh] min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {saved.length + unsaved.length === 0 && <li className="text-sm text-slate-500">No messages yet.</li>}
         {saved.map((m) => (
           <MessageItem key={m.id} author={m.author_id === meId ? 'You' : m.author_name} time={m.created_at} body={m.body} />

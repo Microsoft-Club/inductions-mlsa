@@ -108,6 +108,46 @@ describe('the panelist screen', () => {
   });
 });
 
+describe('on a phone', () => {
+  it('shows the newest messages when the Chat tab is opened', async () => {
+    const msg = (id: string, body: string) => ({ id, interview_id: 'i7', author_id: 'u1', author_name: 'Hamza', body, created_at: '2026-09-26T09:55:00Z' });
+    await openPanel({ interviewMessages: vi.fn(async () => [msg('m1', 'First'), msg('m2', 'Second')]) });
+    const log = await screen.findByRole('log', { name: 'Messages' });
+    await within(log).findByText('Second');
+    Object.defineProperty(log, 'scrollHeight', { value: 480, configurable: true });
+    log.scrollTop = 0; // it was hidden behind the Application tab, so it never scrolled
+    await userEvent.click(screen.getByRole('tab', { name: 'Chat' }));
+    expect(log.scrollTop).toBe(480);
+  });
+});
+
+describe('switching panel', () => {
+  it("starts fresh in the new panel, without the old panel's interviews", async () => {
+    let where = 'p1';
+    const { api } = await openPanel({
+      boardSnapshot: vi.fn(async () =>
+        where === 'p1'
+          ? boardWithMe({ current: null })
+          : board({ panels: [boardPanel('p1', 'Panel 1', { is_default: true }), boardPanel('p2', 'Panel 2', { is_default: true, panelists: [me] })] }),
+      ),
+      panelInterviews: vi.fn((panelId: string) =>
+        panelId === 'p1' ? Promise.resolve([past(7, 'Sara Ahmed'), past(6, 'Omar Farooq')]) : new Promise<PanelInterview[]>(() => {}),
+      ),
+    });
+    const recent = await screen.findByRole('region', { name: 'Recent' });
+    await waitFor(() => expect(within(recent).getAllByRole('listitem')).toHaveLength(1));
+    await userEvent.click(within(recent).getByRole('button', { name: '#6 Omar Farooq' }));
+    expect(await screen.findByRole('button', { name: 'Back to the current interview' })).toBeInTheDocument();
+
+    where = 'p2'; // moved to Panel 2 (from another tab); Panel 2's interviews are still loading
+    (api as FakeApi).topics.board.event();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Panel 2' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back to the current interview' })).toBeNull();
+    expect(screen.queryByText('Omar Farooq')).toBeNull();
+    expect(screen.getByText('Nobody has been interviewed in Panel 2 yet', { exact: false })).toBeInTheDocument();
+  });
+});
+
 describe('the panelist screen on a bad connection', () => {
   const saved = { interview_id: 'i6', scores: { communication: 4 }, recommendation: 'yes' as const, comments: '', updated_at: '2026-09-26T10:01:00Z' };
   const offline = () => Promise.reject(new ApiError(NETWORK_ERROR));

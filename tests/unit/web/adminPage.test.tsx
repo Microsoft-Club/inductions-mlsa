@@ -136,4 +136,25 @@ describe('the admin page', () => {
     await userEvent.click(within(panels).getByRole('button', { name: 'Delete Panel 2' }));
     expect(api.deletePanel).toHaveBeenCalledWith('p2');
   });
+
+  it('disables Save while settings or a new password are being saved', async () => {
+    let finish = () => {};
+    const slow = () => new Promise<void>((resolve) => (finish = resolve));
+    await openAdmin({ updateSettings: vi.fn(slow), manageAccount: vi.fn(slow) });
+
+    const settings = screen.getByRole('region', { name: 'Settings' });
+    await within(settings).findByDisplayValue('Fall 2026');
+    await userEvent.click(within(settings).getByRole('button', { name: 'Save settings' }));
+    expect(within(settings).getByRole('button', { name: 'Save settings' })).toBeDisabled();
+    finish();
+    await waitFor(() => expect(within(settings).getByRole('button', { name: 'Save settings' })).toBeEnabled());
+
+    const queue = await row('Queue Desk');
+    await userEvent.click(within(queue).getByRole('button', { name: 'Reset password for Queue Desk' }));
+    await userEvent.type(within(queue).getByLabelText('New password for Queue Desk'), 'fresh-password');
+    await userEvent.click(within(queue).getByRole('button', { name: 'Save' }));
+    expect(within(queue).getByRole('button', { name: 'Save' })).toBeDisabled();
+    finish();
+    expect(await screen.findByText('Password reset for Queue Desk')).toBeInTheDocument();
+  });
 });

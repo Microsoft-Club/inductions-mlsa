@@ -249,7 +249,10 @@ export interface EvaluationExportRow {
   scores: Scores;
   recommendation: Recommendation;
   comments: string;
+  /** First submitted. */
   submitted_at: string;
+  /** Last changed (panelists can update until results are published). */
+  updated_at: string;
 }
 
 export interface PublishedResult {

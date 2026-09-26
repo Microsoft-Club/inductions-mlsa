@@ -43,7 +43,8 @@ export function PanelPage() {
   return (
     <ActionProvider onSettled={reload}>
       <ConnectionBanner status={status} />
-      {panel ? <InPanel board={board} panel={panel} me={state.profile} /> : <PanelChooser board={board} />}
+      {/* Keyed by panel, so a switch never shows the old panel's interviews while the new ones load. */}
+      {panel ? <InPanel key={panel.id} board={board} panel={panel} me={state.profile} /> : <PanelChooser board={board} />}
     </ActionProvider>
   );
 }

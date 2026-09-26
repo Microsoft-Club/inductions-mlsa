@@ -1,6 +1,7 @@
 // Pure helpers behind /results: formatting, sorting, filtering and the two CSV exports.
 import Papa from 'papaparse';
 import type { CandidateStatus, Criterion, Decision, EvaluationExportRow, Recommendation, ResultRow } from '../lib/types.ts';
+import { parseServerTime } from '../lib/clock.ts';
 import { RECOMMENDATIONS } from '../panel/evaluation.ts';
 
 export const DECISION_LABELS: Record<Decision, string> = {
@@ -106,9 +107,17 @@ export function candidatesCsv(rows: ResultRow[], criteria: Criterion[]): string 
   return Papa.unparse([header, ...body].map((line) => line.map(safeCell)));
 }
 
+const PKT_OFFSET_MS = 5 * 60 * 60 * 1000; // Pakistan: UTC+5, no daylight saving
+
+/** "2026-09-26 15:07:00" in Pakistan time: what the club reads, and a form spreadsheets take as a date. */
+export function pakistanTime(iso: string): string {
+  const ms = parseServerTime(iso);
+  return Number.isNaN(ms) ? '' : new Date(ms + PKT_OFFSET_MS).toISOString().slice(0, 19).replace('T', ' ');
+}
+
 /** Export (b): one row per evaluation, with every criterion as a column. */
 export function evaluationsCsv(rows: EvaluationExportRow[], criteria: Criterion[]): string {
-  const header = ['Number', 'Reg number', 'Name', 'Panel', 'Panelist', ...criteria.map((c) => c.label), 'Recommendation', 'Comments', 'Submitted at'];
+  const header = ['Number', 'Reg number', 'Name', 'Panel', 'Panelist', ...criteria.map((c) => c.label), 'Recommendation', 'Comments', 'Submitted at (PKT)', 'Last changed (PKT)'];
   const body = rows.map((row) => [
     row.number,
     row.reg_number,
@@ -118,7 +127,8 @@ export function evaluationsCsv(rows: EvaluationExportRow[], criteria: Criterion[
     ...criteria.map((c) => row.scores[c.key] ?? ''),
     RECOMMENDATION_LABELS[row.recommendation],
     row.comments,
-    row.submitted_at,
+    pakistanTime(row.submitted_at),
+    pakistanTime(row.updated_at),
   ]);
   return Papa.unparse([header, ...body].map((line) => line.map(safeCell)));
 }
