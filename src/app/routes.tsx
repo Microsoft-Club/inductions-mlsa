@@ -4,14 +4,16 @@ import { QueuePage } from '../queue/QueuePage.tsx';
 import { LoginPage } from './LoginPage.tsx';
 import { AdminHome, ComingSoon, HomeRedirect, NotFound } from './placeholders.tsx';
 import { RequireRole } from './RequireRole.tsx';
+import { RouteError } from './RouteError.tsx';
 import { StaffLayout } from './StaffLayout.tsx';
 
 export const routes: RouteObject[] = [
-  { path: '/login', element: <LoginPage /> },
-  { path: '/display', element: <DisplayPage /> },
+  { path: '/login', element: <LoginPage />, errorElement: <RouteError /> },
+  { path: '/display', element: <DisplayPage />, errorElement: <RouteError /> },
   {
     path: '/',
     element: <StaffLayout />,
+    errorElement: <RouteError />,
     children: [
       { index: true, element: <HomeRedirect /> },
       { path: 'queue', element: <RequireRole roles={['queue_manager', 'admin']}><QueuePage /></RequireRole> },
@@ -19,5 +21,5 @@ export const routes: RouteObject[] = [
       { path: 'admin', element: <RequireRole roles={['admin']}><AdminHome /></RequireRole> },
     ],
   },
-  { path: '*', element: <NotFound /> },
+  { path: '*', element: <NotFound />, errorElement: <RouteError /> },
 ];

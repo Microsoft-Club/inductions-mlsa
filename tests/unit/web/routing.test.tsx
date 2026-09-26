@@ -52,5 +52,6 @@ describe('sign in and routing', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+    expect(router.state.location.search).toBe(''); // the next person to sign in starts on their own screen
   });
 });
