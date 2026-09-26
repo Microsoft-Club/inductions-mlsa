@@ -125,3 +125,134 @@ export interface ImportResult {
   updated: number;
   flagged: ImportFlag[];
 }
+
+// ---- Panelist, admin and results screens (Plan 3) ----
+
+export type Decision = 'undecided' | 'selected' | 'not_selected';
+export type Recommendation = 'strong_yes' | 'yes' | 'maybe' | 'no';
+export type InterviewStatus = 'in_progress' | 'ended' | 'cancelled';
+
+/** A full candidates row, as panelists and admins read it. */
+export interface Candidate {
+  id: string;
+  number: number;
+  reg_number: string;
+  full_name: string;
+  email: string;
+  account_email: string;
+  phone: string;
+  department: string;
+  batch: string;
+  submitted_at: string;
+  preferences: string[];
+  /** Sections the form had; an import may leave a section out. */
+  answers: Partial<Record<AnswerSection, Answer[]>>;
+  status: CandidateStatus;
+  checked_in_at: string | null;
+  decision: Decision;
+}
+
+/** One interview on a panel, newest first (the panelist's current and recent interviews). */
+export interface PanelInterview {
+  id: string;
+  status: InterviewStatus;
+  started_at: string;
+  ended_at: string | null;
+  candidate: { id: string; number: number; full_name: string };
+}
+
+export interface ChatMessage {
+  id: string;
+  interview_id: string;
+  author_id: string;
+  author_name: string;
+  body: string;
+  created_at: string;
+}
+
+export interface Criterion {
+  key: string;
+  label: string;
+  category: 'general' | 'team_fit';
+  sort_order: number;
+}
+
+/** Scores by criterion key, 1–5. A missing key means N/A or not scored. */
+export type Scores = Record<string, number>;
+
+export interface MyEvaluation {
+  interview_id: string;
+  scores: Scores;
+  recommendation: Recommendation;
+  comments: string;
+  updated_at: string;
+}
+
+export type Account = Profile;
+
+export interface InductionSettings {
+  id: string;
+  name: string;
+  target_interview_minutes: number;
+  results_published: boolean;
+}
+
+/** One row of results_table(). Averages are null when nobody gave a score. */
+export interface ResultRow {
+  candidate_id: string;
+  number: number;
+  reg_number: string;
+  full_name: string;
+  department: string;
+  batch: string;
+  preferences: string[];
+  status: CandidateStatus;
+  decision: Decision;
+  evaluation_count: number;
+  general_avg: number | null;
+  criteria_avgs: Record<string, number>;
+  recommendations: Partial<Record<Recommendation, number>>;
+}
+
+export interface RecordEvaluation {
+  panelist_name: string;
+  scores: Scores;
+  recommendation: Recommendation;
+  comments: string;
+  submitted_at: string;
+  updated_at: string;
+}
+
+export interface RecordInterview {
+  id: string;
+  panel_name: string;
+  status: InterviewStatus;
+  started_at: string;
+  ended_at: string | null;
+  messages: ChatMessage[];
+  evaluations: RecordEvaluation[];
+}
+
+/** candidate_record(): everything about one candidate, for admins. */
+export interface CandidateRecord {
+  candidate: Candidate & { created_at: string; updated_at: string };
+  interviews: RecordInterview[];
+}
+
+/** One row of evaluations_export(). */
+export interface EvaluationExportRow {
+  number: number;
+  reg_number: string;
+  full_name: string;
+  panel: string;
+  panelist: string;
+  scores: Scores;
+  recommendation: Recommendation;
+  comments: string;
+  submitted_at: string;
+}
+
+export interface PublishedResult {
+  full_name: string;
+  reg_number: string;
+}

@@ -1,7 +1,31 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { FunctionsHttpError, type SupabaseClient } from '@supabase/supabase-js';
+import type { AdminUsersCommand } from '../../supabase/functions/admin-users/validate.ts';
 import { notAllowed } from './notAllowed.ts';
 import { broadcastSubscriber, type Subscribe } from './realtime.ts';
-import type { BoardSnapshot, CandidateSummary, DisplaySnapshot, ImportResult, ImportRow } from './types.ts';
+import type {
+  Account,
+  BoardSnapshot,
+  Candidate,
+  CandidateRecord,
+  CandidateSummary,
+  ChatMessage,
+  Criterion,
+  Decision,
+  DisplaySnapshot,
+  EvaluationExportRow,
+  ImportResult,
+  ImportRow,
+  InductionSettings,
+  MyEvaluation,
+  PanelInterview,
+  PublishedResult,
+  Recommendation,
+  ResultRow,
+  Scores,
+} from './types.ts';
+
+const CANDIDATE_COLUMNS =
+  'id, number, reg_number, full_name, email, account_email, phone, department, batch, submitted_at, preferences, answers, status, checked_in_at, decision';
 
 export const NETWORK_ERROR = "Can't reach the server. Check the connection and try again.";
 export const TIMEOUT_ERROR = 'The server took too long to answer. Check the board before trying again.';
@@ -45,6 +69,39 @@ export interface Api {
   importCandidates(rows: ImportRow[]): Promise<ImportResult>;
   subscribeBoard(): Subscribe;
   subscribeDisplay(key: string): Subscribe;
+
+  // Panelists (and admins on /panel)
+  /** null = not sitting in any panel. */
+  setMyPanel(panelId: string | null): Promise<void>;
+  candidate(candidateId: string): Promise<Candidate>;
+  /** The panel's interviews, newest first (cancelled ones left out). */
+  panelInterviews(panelId: string): Promise<PanelInterview[]>;
+  criteria(inductionId: string): Promise<Criterion[]>;
+  interviewMessages(interviewId: string): Promise<ChatMessage[]>;
+  /** `id` comes from the browser so a retry after a failed send can't post twice. */
+  postMessage(interviewId: string, body: string, id: string): Promise<ChatMessage>;
+  evaluationCount(interviewId: string): Promise<number>;
+  /** This person's own evaluations (admins can read everyone's, hence the explicit user id). */
+  myEvaluations(userId: string): Promise<MyEvaluation[]>;
+  submitEvaluation(interviewId: string, scores: Scores, recommendation: Recommendation, comments: string): Promise<void>;
+  subscribeInterview(interviewId: string): Subscribe;
+
+  // Admins
+  listAccounts(): Promise<Account[]>;
+  /** Create, reset a password, disable or enable, through the admin-users edge function. */
+  manageAccount(command: AdminUsersCommand): Promise<void>;
+  induction(): Promise<InductionSettings>;
+  updateSettings(name: string, targetMinutes: number): Promise<void>;
+  /** Returns the new projector key; old links stop working at once. */
+  regenerateDisplayKey(): Promise<string>;
+  resultsTable(): Promise<ResultRow[]>;
+  candidateRecord(candidateId: string): Promise<CandidateRecord>;
+  evaluationsExport(): Promise<EvaluationExportRow[]>;
+  setDecision(candidateId: string, decision: Decision): Promise<void>;
+  setResultsPublished(published: boolean): Promise<void>;
+
+  // Anyone
+  publishedResults(): Promise<PublishedResult[]>;
 }
 
 export interface ApiOptions {
@@ -111,5 +168,104 @@ export function createApi(client: SupabaseClient, { timeoutMs = 15_000, importTi
     importCandidates: (rows) => rpc<ImportResult>('import_candidates', { p_rows: rows }, importTimeoutMs),
     subscribeBoard: () => broadcastSubscriber(client, 'board', true),
     subscribeDisplay: (key) => broadcastSubscriber(client, `display:${key}`, false),
+
+    setMyPanel: (panelId) => rpc<void>('set_my_panel', { p_panel_id: panelId }),
+    async candidate(candidateId) {
+      const row = await send<Candidate | null>((signal) =>
+        client.from('candidates').select(CANDIDATE_COLUMNS).eq('id', candidateId).abortSignal(signal).maybeSingle(),
+      );
+      if (!row) throw new ApiError('Candidate not found');
+      return row;
+    },
+    panelInterviews: (panelId) =>
+      send<PanelInterview[]>((signal) =>
+        client
+          .from('interviews')
+          .select('id, status, started_at, ended_at, candidate:candidates(id, number, full_name)')
+          .eq('panel_id', panelId)
+          .neq('status', 'cancelled')
+          .order('started_at', { ascending: false })
+          .limit(30)
+          .abortSignal(signal),
+      ),
+    criteria: (inductionId) =>
+      send<Criterion[]>((signal) =>
+        client
+          .from('evaluation_criteria')
+          .select('key, label, category, sort_order')
+          .eq('induction_id', inductionId)
+          .order('sort_order')
+          .abortSignal(signal),
+      ),
+    interviewMessages: (interviewId) => rpc<ChatMessage[]>('interview_messages', { p_interview_id: interviewId }),
+    postMessage: (interviewId, body, id) =>
+      rpc<ChatMessage>('post_message', { p_interview_id: interviewId, p_body: body, p_id: id }),
+    evaluationCount: (interviewId) => rpc<number>('evaluation_count', { p_interview_id: interviewId }),
+    myEvaluations: (userId) =>
+      send<MyEvaluation[]>((signal) =>
+        client
+          .from('evaluations')
+          .select('interview_id, scores, recommendation, comments, updated_at')
+          .eq('panelist_id', userId)
+          .abortSignal(signal),
+      ),
+    submitEvaluation: (interviewId, scores, recommendation, comments) =>
+      rpc<void>('submit_evaluation', {
+        p_interview_id: interviewId,
+        p_scores: scores,
+        p_recommendation: recommendation,
+        p_comments: comments,
+      }),
+    subscribeInterview: (interviewId) => broadcastSubscriber(client, `interview:${interviewId}`, true),
+
+    listAccounts: () =>
+      send<Account[]>((signal) =>
+        client
+          .from('profiles')
+          .select('id, username, display_name, role, is_active, current_panel_id')
+          .order('username')
+          .abortSignal(signal),
+      ),
+    async manageAccount(command) {
+      let result;
+      try {
+        result = await client.functions.invoke('admin-users', { body: command, timeout: timeoutMs });
+      } catch {
+        throw new ApiError(NETWORK_ERROR);
+      }
+      const { error } = result;
+      if (!error) return;
+      if (error instanceof FunctionsHttpError) {
+        const response = error.context as Response;
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        const message = response.status === 401 || response.status === 403 ? NOT_ALLOWED : body?.error?.trim() || 'Something went wrong';
+        if (message === NOT_ALLOWED) notAllowed.emit();
+        throw new ApiError(message);
+      }
+      const cause = (error as { context?: { name?: string } }).context;
+      throw new ApiError(cause?.name === 'AbortError' || cause?.name === 'TimeoutError' ? TIMEOUT_ERROR : NETWORK_ERROR);
+    },
+    async induction() {
+      const row = await send<InductionSettings | null>((signal) =>
+        client
+          .from('inductions')
+          .select('id, name, target_interview_minutes, results_published')
+          .eq('is_active', true)
+          .abortSignal(signal)
+          .maybeSingle(),
+      );
+      if (!row) throw new ApiError('No active induction');
+      return row;
+    },
+    updateSettings: (name, targetMinutes) =>
+      rpc<void>('update_settings', { p_name: name, p_target_minutes: targetMinutes }),
+    regenerateDisplayKey: () => rpc<string>('regenerate_display_key'),
+    resultsTable: () => rpc<ResultRow[]>('results_table'),
+    candidateRecord: (candidateId) => rpc<CandidateRecord>('candidate_record', { p_candidate_id: candidateId }),
+    evaluationsExport: () => rpc<EvaluationExportRow[]>('evaluations_export'),
+    setDecision: (candidateId, decision) => rpc<void>('set_decision', { p_candidate_id: candidateId, p_decision: decision }),
+    setResultsPublished: (published) => rpc<void>('set_results_published', { p_published: published }),
+
+    publishedResults: () => rpc<PublishedResult[]>('published_results'),
   };
 }

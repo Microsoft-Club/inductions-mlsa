@@ -7,7 +7,7 @@ import type { AuthBackend } from '../../../src/auth/authBackend.ts';
 import type { Api } from '../../../src/lib/api.ts';
 import type { ChannelStatus, Subscribe } from '../../../src/lib/realtime.ts';
 import type { Profile } from '../../../src/lib/types.ts';
-import { board, display } from './fixtures.ts';
+import { board, candidateRecordFor, candidateRow, criteriaList, display } from './fixtures.ts';
 
 /** A realtime topic the test drives by hand. */
 export function fakeTopic() {
@@ -26,11 +26,13 @@ export function fakeTopic() {
   };
 }
 
-export type FakeApi = Api & { topics: { board: ReturnType<typeof fakeTopic>; display: ReturnType<typeof fakeTopic> } };
+export type FakeApi = Api & {
+  topics: { board: ReturnType<typeof fakeTopic>; display: ReturnType<typeof fakeTopic>; interview: ReturnType<typeof fakeTopic> };
+};
 
 /** Every Api method as a vi.fn with a sensible default; override any of them. */
 export function fakeApi(overrides: Partial<Api> = {}): FakeApi {
-  const topics = { board: fakeTopic(), display: fakeTopic() };
+  const topics = { board: fakeTopic(), display: fakeTopic(), interview: fakeTopic() };
   const api: Api = {
     boardSnapshot: vi.fn(async () => board()),
     displaySnapshot: vi.fn(async () => display()),
@@ -50,6 +52,34 @@ export function fakeApi(overrides: Partial<Api> = {}): FakeApi {
     importCandidates: vi.fn(async () => ({ added: 0, updated: 0, flagged: [] })),
     subscribeBoard: vi.fn(() => topics.board.subscribe),
     subscribeDisplay: vi.fn(() => topics.display.subscribe),
+    setMyPanel: vi.fn(async () => {}),
+    candidate: vi.fn(async (id: string) => candidateRow({ id })),
+    panelInterviews: vi.fn(async () => []),
+    criteria: vi.fn(async () => criteriaList()),
+    interviewMessages: vi.fn(async () => []),
+    postMessage: vi.fn(async (interviewId: string, body: string, id: string) => ({
+      id,
+      interview_id: interviewId,
+      author_id: 'u-panelist',
+      author_name: 'Test panelist',
+      body,
+      created_at: new Date().toISOString(),
+    })),
+    evaluationCount: vi.fn(async () => 0),
+    myEvaluations: vi.fn(async () => []),
+    submitEvaluation: vi.fn(async () => {}),
+    subscribeInterview: vi.fn(() => topics.interview.subscribe),
+    listAccounts: vi.fn(async () => []),
+    manageAccount: vi.fn(async () => {}),
+    induction: vi.fn(async () => ({ id: 'ind-1', name: 'Fall 2026', target_interview_minutes: 15, results_published: false })),
+    updateSettings: vi.fn(async () => {}),
+    regenerateDisplayKey: vi.fn(async () => 'new-key'),
+    resultsTable: vi.fn(async () => []),
+    candidateRecord: vi.fn(async () => candidateRecordFor()),
+    evaluationsExport: vi.fn(async () => []),
+    setDecision: vi.fn(async () => {}),
+    setResultsPublished: vi.fn(async () => {}),
+    publishedResults: vi.fn(async () => []),
     ...overrides,
   };
   return Object.assign(api, { topics });
