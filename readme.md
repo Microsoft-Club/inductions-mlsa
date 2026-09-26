@@ -50,7 +50,7 @@ npm run test:e2e          # Playwright: the whole induction day in Chromium; nee
                           # seed:dev, functions:serve and web:env, and starts the dev server itself
 ```
 
-Each E2E run imports one candidate named "Eesha Test …" and leaves it in the local database;
+Each E2E run imports a few candidates ("Eesha Test …", "Chat Test …") and leaves them in the local database;
 `npm run db:reset && npm run seed:dev` clears them.
 
 ## Accounts
