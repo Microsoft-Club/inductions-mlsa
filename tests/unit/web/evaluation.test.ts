@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { draftFromEvaluation, loadDraft, saveDraft, validateDraft, type EvaluationDraft } from '../../../src/panel/evaluation.ts';
+import { draftFromEvaluation, loadDraft, sameAsSaved, saveDraft, validateDraft, type EvaluationDraft } from '../../../src/panel/evaluation.ts';
 
 function memoryStorage(initial: Record<string, string> = {}): Storage {
   const data = new Map(Object.entries(initial));
@@ -41,5 +41,16 @@ describe('validateDraft', () => {
     expect(validateDraft({ scores: {}, recommendation: null, comments: '' })).toBe('Choose a recommendation before submitting.');
     expect(validateDraft({ scores: {}, recommendation: 'no', comments: '' })).toBeNull();
     expect(validateDraft({ scores: {}, recommendation: 'yes', comments: 'x'.repeat(5001) })).toBe('Comments must be at most 5000 characters.');
+  });
+});
+
+describe('sameAsSaved', () => {
+  const saved = { interview_id: 'i7', scores: { communication: 4, teamwork: 3 }, recommendation: 'yes' as const, comments: 'Good', updated_at: '2026-09-26T10:07:00Z' };
+
+  it('ignores the order the scores were given in', () => {
+    expect(sameAsSaved({ scores: { teamwork: 3, communication: 4 }, recommendation: 'yes', comments: 'Good' }, saved)).toBe(true);
+    expect(sameAsSaved({ scores: { teamwork: 3, communication: 5 }, recommendation: 'yes', comments: 'Good' }, saved)).toBe(false);
+    expect(sameAsSaved({ scores: { teamwork: 3 }, recommendation: 'yes', comments: 'Good' }, saved)).toBe(false);
+    expect(sameAsSaved({ scores: {}, recommendation: null, comments: '' })).toBe(true);
   });
 });

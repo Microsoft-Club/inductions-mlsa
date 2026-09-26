@@ -66,8 +66,16 @@ export function clearDraft(key: string): void {
   }
 }
 
+/** True when the draft says exactly what was submitted (the order scores were given in doesn't matter). */
 export function sameAsSaved(draft: EvaluationDraft, saved?: MyEvaluation): boolean {
-  return JSON.stringify(draft) === JSON.stringify(draftFromEvaluation(saved));
+  const base = draftFromEvaluation(saved);
+  const a = Object.entries(draft.scores);
+  return (
+    draft.recommendation === base.recommendation &&
+    draft.comments === base.comments &&
+    a.length === Object.keys(base.scores).length &&
+    a.every(([key, value]) => base.scores[key] === value)
+  );
 }
 
 /** Only the recommendation is required (spec §5); scores may be left blank. */
