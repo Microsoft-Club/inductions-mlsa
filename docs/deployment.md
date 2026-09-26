@@ -84,8 +84,12 @@ On the Pages URL:
 3. Create a queue manager and a panelist account, sign in with each in a private window.
 4. On `/admin`, open the projector link on another device: both panels show **Free** and a green dot.
 5. As the queue manager, import the latest CSV (see step 7), check someone in and send them into a
-   panel: the projector changes within a second; the panelist sees the application.
-6. Undo it: **End interview**, then open **Results** and set the decision back if you changed it.
+   panel: the projector changes within a second; the panelist sees the application. Don't chat,
+   evaluate or set a decision for them.
+6. Undo it straight away, in this order: **Undo send-in** on the panel card, **Back to pool** on the
+   candidate, then **Undo check-in**. They are Registered again, as if nothing happened. Never use
+   **End interview** here: it marks a real candidate as interviewed, and on the day they can't be
+   checked in. (Better still, run this whole check on the dry-run project from step 7.)
 
 ## 7. Before induction day
 
