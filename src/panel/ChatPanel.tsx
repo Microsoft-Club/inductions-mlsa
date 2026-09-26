@@ -3,6 +3,7 @@ import { buttonClasses } from '../components/ActionButton.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
 import { parseServerTime } from '../lib/clock.ts';
 import type { LiveSnapshot } from '../lib/useLiveSnapshot.ts';
+import { authorColours } from './authorColours.ts';
 import { chatDraftKey, forgetUnsent, loadChatDraft, saveChatDraft } from './chatDrafts.ts';
 import type { InterviewLive } from './useInterviewLive.ts';
 
@@ -36,6 +37,7 @@ export function ChatPanel({ interviewId, live, meId, tabOpen = false }: ChatPane
   const savedIds = new Set(saved.map((m) => m.id));
   const unsaved = pending.filter((p) => !savedIds.has(p.id));
   const unsent = JSON.stringify(unsaved.map(({ id, body }) => ({ id, body })));
+  const colours = authorColours([...saved.map((m) => m.author_id), meId]);
 
   useEffect(() => {
     saveChatDraft(draftKey, { text: draft, unsent: JSON.parse(unsent) });
@@ -76,10 +78,24 @@ export function ChatPanel({ interviewId, live, meId, tabOpen = false }: ChatPane
       <ol ref={listRef} role="log" aria-label="Messages" className="max-h-[60vh] min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {saved.length + unsaved.length === 0 && <li className="text-sm text-slate-500">No messages yet.</li>}
         {saved.map((m) => (
-          <MessageItem key={m.id} author={m.author_id === meId ? 'You' : m.author_name} time={m.created_at} body={m.body} />
+          <MessageItem
+            key={m.id}
+            author={m.author_id === meId ? 'You' : m.author_name}
+            nameColour={colours.get(m.author_id)}
+            time={m.created_at}
+            body={m.body}
+          />
         ))}
         {unsaved.map((p) => (
-          <MessageItem key={p.id} author="You" body={p.body} failed={p.failed} sending={!p.failed} onRetry={() => void deliver(p.id, p.body)} />
+          <MessageItem
+            key={p.id}
+            author="You"
+            nameColour={colours.get(meId)}
+            body={p.body}
+            failed={p.failed}
+            sending={!p.failed}
+            onRetry={() => void deliver(p.id, p.body)}
+          />
         ))}
       </ol>
       <form
@@ -118,6 +134,8 @@ export function ChatPanel({ interviewId, live, meId, tabOpen = false }: ChatPane
 
 interface MessageItemProps {
   author: string;
+  /** Tells panelists apart at a glance (authorColours). */
+  nameColour?: string;
   body: string;
   time?: string;
   sending?: boolean;
@@ -125,11 +143,11 @@ interface MessageItemProps {
   onRetry?: () => void;
 }
 
-function MessageItem({ author, body, time, sending, failed, onRetry }: MessageItemProps) {
+function MessageItem({ author, nameColour = 'text-slate-700', body, time, sending, failed, onRetry }: MessageItemProps) {
   return (
     <li className={author === 'You' ? 'ml-6' : 'mr-6'}>
       <p className="flex items-baseline gap-2 text-xs text-slate-500">
-        <span className="font-semibold text-slate-700">{author}</span>
+        <span className={`font-semibold ${nameColour}`}>{author}</span>
         {time && <time dateTime={time}>{new Date(parseServerTime(time)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>}
         {sending && <span>Sending…</span>}
         {failed && (

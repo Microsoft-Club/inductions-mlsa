@@ -129,3 +129,26 @@ describe('coming back to an interview', () => {
     expect(api.postMessage).toHaveBeenLastCalledWith('i7', 'Ask about Docker', id);
   });
 });
+
+/** The colour class on a name, e.g. text-sky-700. */
+const colourOf = (el: HTMLElement) => [...el.classList].find((c) => /^text-[a-z]+-\d{3}$/.test(c));
+
+describe('names in the discussion', () => {
+  it('gives each panelist a colour of their own, the same on every message', async () => {
+    const api = fakeApi({
+      interviewMessages: vi.fn(async () => [
+        message('m1', 'u1', 'Hamza', 'One'),
+        message('m2', 'u2', 'Mariam', 'Two'),
+        message('m3', 'u1', 'Hamza', 'Three'),
+        message('m4', 'u-panelist', 'Test panelist', 'Four'),
+      ]),
+    });
+    renderChat(api);
+    await within(log()).findByText('Four');
+    const [first, again] = within(log()).getAllByText('Hamza').map(colourOf);
+    const mariam = colourOf(within(log()).getByText('Mariam'));
+    const you = colourOf(within(log()).getByText('You'));
+    expect(first).toBe(again);
+    expect(new Set([first, mariam, you]).size).toBe(3);
+  });
+});

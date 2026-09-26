@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ActionProvider } from '../../../src/components/ActionProvider.tsx';
 import { ToastProvider } from '../../../src/components/Toasts.tsx';
 import { ApiProvider } from '../../../src/lib/ApiProvider.tsx';
@@ -67,11 +67,16 @@ describe('the application', () => {
     expect(answer).toHaveClass('whitespace-pre-wrap');
   });
 
-  it('shows the live timer and End interview while the interview runs', async () => {
+  it('shows the live timer and End interview while the interview runs, and asks before ending', async () => {
     const api = renderApplication(candidateRow(), { id: 'i7', status: 'in_progress', started_at: new Date().toISOString(), ended_at: null });
     expect(screen.getByText('00:00')).toBeInTheDocument();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    await userEvent.click(screen.getByRole('button', { name: 'End interview' }));
+    expect(confirm).toHaveBeenCalledWith('End the interview with #7 Sara Ahmed?');
+    expect(api.endInterview).not.toHaveBeenCalled(); // cancelled
     await userEvent.click(screen.getByRole('button', { name: 'End interview' }));
     expect(api.endInterview).toHaveBeenCalledWith('i7');
+    confirm.mockRestore();
   });
 
   it('says when an interview has ended, without an End button', () => {

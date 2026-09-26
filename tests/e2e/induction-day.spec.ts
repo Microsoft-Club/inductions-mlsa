@@ -105,6 +105,10 @@ test('an induction day from import to the published list', async ({ browser }, t
   await expect(second.getByRole('log', { name: 'Messages' })).toContainText('Clear answers on ownership');
 
   // One of them ends the interview; both evaluate.
+  first.once('dialog', (dialog) => {
+    expect(dialog.message()).toBe(`End the interview with #${number} ${candidateName}?`);
+    void dialog.accept();
+  });
   await first.getByRole('button', { name: 'End interview' }).click();
   await expect(first.getByText(/^Interview ended/)).toBeVisible();
   await expect(tile.getByText('Free')).toBeVisible();

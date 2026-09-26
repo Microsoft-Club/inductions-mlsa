@@ -49,8 +49,10 @@ describe('the panelist screen', () => {
     expect(api.subscribeInterview).toHaveBeenCalledWith('i7');
     expect(screen.getByText((_, el) => el?.tagName === 'P' && el.textContent === 'Up next: #12 Ali Raza')).toBeInTheDocument();
 
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
     await userEvent.click(screen.getByRole('button', { name: 'End interview' }));
     expect(api.endInterview).toHaveBeenCalledWith('i7');
+    confirm.mockRestore();
   });
 
   it('keeps the last interview open after it ends, and lists earlier ones with pending evaluations', async () => {
