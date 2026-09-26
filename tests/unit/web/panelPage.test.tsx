@@ -2,10 +2,10 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { Api } from '../../../src/lib/api.ts';
+import { ApiError, NETWORK_ERROR, type Api } from '../../../src/lib/api.ts';
 import type { BoardSnapshot, PanelInterview } from '../../../src/lib/types.ts';
-import { board, boardPanel, candidateRow, interview, lane, profile } from './fixtures.ts';
-import { fakeApi, fakeAuth, renderApp } from './helpers.tsx';
+import { board, boardPanel, candidateRow, criteriaList, interview, lane, profile } from './fixtures.ts';
+import { fakeApi, fakeAuth, renderApp, type FakeApi } from './helpers.tsx';
 
 const me = { id: 'u-panelist', display_name: 'Test panelist' };
 
@@ -105,5 +105,57 @@ describe('the panelist screen', () => {
     expect(api.candidate).toHaveBeenLastCalledWith('c5');
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+});
+
+describe('the panelist screen on a bad connection', () => {
+  const saved = { interview_id: 'i6', scores: { communication: 4 }, recommendation: 'yes' as const, comments: '', updated_at: '2026-09-26T10:01:00Z' };
+  const offline = () => Promise.reject(new ApiError(NETWORK_ERROR));
+
+  /** Criteria and your evaluations fail until `net.online` is set; each board read has a new server time. */
+  function flaky() {
+    const net = { online: false };
+    let reads = 0;
+    const overrides = {
+      boardSnapshot: vi.fn(async () => boardWithMe({}, { server_time: `2026-09-26T10:00:${String(reads++ % 60).padStart(2, '0')}Z` })),
+      criteria: vi.fn(async () => (net.online ? criteriaList() : offline())),
+      myEvaluations: vi.fn(async () => (net.online ? [saved] : offline())),
+      panelInterviews: vi.fn(async () => [past(7, 'Sara Ahmed', 'in_progress'), past(6, 'Omar Farooq')]),
+    } satisfies Partial<Api>;
+    return { net, overrides };
+  }
+
+  it('never shows the evaluation form without its criteria, and loads it when the board reloads', async () => {
+    const { net, overrides } = flaky();
+    const { api } = await openPanel(overrides);
+    expect(await screen.findByRole('heading', { name: '#7 Sara Ahmed' })).toBeInTheDocument();
+    expect(await screen.findByText(/Couldn't load your evaluation form/)).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'My evaluation' })).toBeNull();
+    const recent = await screen.findByRole('region', { name: 'Recent' });
+    await waitFor(() => expect(within(recent).getAllByRole('listitem')).toHaveLength(1));
+    expect(within(recent).getByRole('listitem')).not.toHaveTextContent('Evaluation pending'); // unknown, not pending
+
+    net.online = true;
+    (api as FakeApi).topics.board.event(); // the board reloads, as it does after reconnecting
+    const form = await screen.findByRole('region', { name: 'My evaluation' });
+    expect(within(form).getByRole('group', { name: 'Communication' })).toBeInTheDocument();
+  });
+
+  it('offers Try again for the evaluation form', async () => {
+    const { net, overrides } = flaky();
+    await openPanel({ ...overrides, boardSnapshot: vi.fn(async () => boardWithMe()) });
+    expect(await screen.findByText(/Couldn't load your evaluation form/)).toBeInTheDocument();
+    net.online = true;
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('region', { name: 'My evaluation' })).toBeInTheDocument();
+  });
+
+  it('offers Try again when the application does not load', async () => {
+    let online = false;
+    await openPanel({ candidate: vi.fn(async (id: string) => (online ? candidateRow({ id }) : offline())) });
+    expect(await screen.findByText(NETWORK_ERROR)).toBeInTheDocument();
+    online = true;
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('heading', { name: '#7 Sara Ahmed' })).toBeInTheDocument();
   });
 });

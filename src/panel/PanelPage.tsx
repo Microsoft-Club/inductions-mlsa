@@ -69,7 +69,8 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
   const api = useApi();
   const [recent, setRecent] = useState<PanelInterview[]>([]);
   const [evaluations, setEvaluations] = useState<MyEvaluation[] | undefined>(undefined);
-  const [criteria, setCriteria] = useState<Criterion[]>([]);
+  const [criteria, setCriteria] = useState<Criterion[] | null>(null);
+  const [formFailed, setFormFailed] = useState(false);
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   const boardVersion = board.server_time;
   const inductionId = board.induction.id;
@@ -85,17 +86,29 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
     };
   }, [api, panel.id, boardVersion]);
 
-  const loadEvaluations = useCallback(() => {
-    api.myEvaluations(me.id).then(setEvaluations, () => setEvaluations((e) => e ?? []));
-  }, [api, me.id]);
-  useEffect(loadEvaluations, [loadEvaluations]);
-
+  // The form needs the criteria and this person's evaluations. Until both have loaded, try again on
+  // every board reload (the board reloads after a reconnect) and on "Try again"; never guess either.
+  const formReady = criteria !== null && evaluations !== undefined;
+  const loadForm = useCallback(async () => {
+    try {
+      const [rows, mine] = await Promise.all([api.criteria(inductionId), api.myEvaluations(me.id)]);
+      setCriteria(rows);
+      setEvaluations(mine);
+      setFormFailed(false);
+    } catch {
+      setFormFailed(true);
+    }
+  }, [api, inductionId, me.id]);
   useEffect(() => {
-    api.criteria(inductionId).then(setCriteria, () => {});
-  }, [api, inductionId]);
+    if (!formReady) void loadForm();
+  }, [formReady, loadForm, boardVersion]);
+
+  const reloadEvaluations = useCallback(() => {
+    api.myEvaluations(me.id).then(setEvaluations, () => {}); // keep the list we have
+  }, [api, me.id]);
 
   const shown = shownInterview(panel, recent, pinnedId);
-  const evaluated = new Set((evaluations ?? []).map((e) => e.interview_id));
+  const evaluated = evaluations ? new Set(evaluations.map((e) => e.interview_id)) : null;
   const next = panel.lane[0];
 
   return (
@@ -133,9 +146,11 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
           userId={me.id}
           criteria={criteria}
           evaluations={evaluations}
+          formFailed={formFailed}
+          onRetryForm={() => void loadForm()}
           locked={board.induction.results_published}
           targetMinutes={board.induction.target_interview_minutes}
-          onEvaluationSubmitted={loadEvaluations}
+          onEvaluationSubmitted={reloadEvaluations}
         />
       ) : (
         <p className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-600">

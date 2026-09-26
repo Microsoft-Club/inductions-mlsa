@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { buttonClasses } from '../components/ActionButton.tsx';
 import { errorMessage } from '../lib/api.ts';
 import { useApi } from '../lib/ApiProvider.tsx';
 import type { Candidate, Criterion, MyEvaluation } from '../lib/types.ts';
@@ -14,20 +15,25 @@ type PhoneTab = 'application' | 'chat' | 'evaluate';
 interface InterviewWorkspaceProps {
   interview: ShownInterview;
   userId: string;
-  criteria: Criterion[];
-  /** undefined while this person's evaluations are still loading. */
+  /** null until the criteria have loaded. */
+  criteria: Criterion[] | null;
+  /** undefined until this person's evaluations have loaded. */
   evaluations: MyEvaluation[] | undefined;
+  /** Loading the criteria or the evaluations failed; the form waits for both. */
+  formFailed: boolean;
+  onRetryForm: () => void;
   locked: boolean;
   targetMinutes: number;
   onEvaluationSubmitted: () => void;
 }
 
 /** Application · Discussion · My evaluation for one interview. Keyed by interview id by its parent. */
-export function InterviewWorkspace({ interview, userId, criteria, evaluations, locked, targetMinutes, onEvaluationSubmitted }: InterviewWorkspaceProps) {
+export function InterviewWorkspace({ interview, userId, criteria, evaluations, formFailed, onRetryForm, locked, targetMinutes, onEvaluationSubmitted }: InterviewWorkspaceProps) {
   const api = useApi();
   const live = useInterviewLive(interview.id);
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const [tab, setTab] = useState<PhoneTab>('application');
 
   useEffect(() => {
@@ -39,7 +45,7 @@ export function InterviewWorkspace({ interview, userId, criteria, evaluations, l
     return () => {
       current = false;
     };
-  }, [api, interview.candidateId]);
+  }, [api, interview.candidateId, attempt]);
 
   const saved = evaluations?.find((e) => e.interview_id === interview.id);
   const show = (which: PhoneTab) => (tab === which ? '' : 'hidden lg:block');
@@ -71,17 +77,29 @@ export function InterviewWorkspace({ interview, userId, criteria, evaluations, l
               />
               <ApplicationTabs candidate={candidate} />
             </>
+          ) : loadError ? (
+            <div role="alert" className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+              <p>{loadError}</p>
+              <button
+                type="button"
+                className={`${buttonClasses('secondary')} mt-2`}
+                onClick={() => {
+                  setLoadError(null);
+                  setAttempt((n) => n + 1);
+                }}
+              >
+                Try again
+              </button>
+            </div>
           ) : (
-            <p role={loadError ? 'alert' : undefined} className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-              {loadError ?? 'Loading the application…'}
-            </p>
+            <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">Loading the application…</p>
           )}
         </div>
         <div className={show('chat')}>
           <ChatPanel interviewId={interview.id} live={live} meId={userId} />
         </div>
         <div className={show('evaluate')}>
-          {evaluations && (
+          {evaluations && criteria ? (
             <EvaluationForm
               key={saved?.updated_at ?? 'new'}
               interviewId={interview.id}
@@ -95,6 +113,15 @@ export function InterviewWorkspace({ interview, userId, criteria, evaluations, l
                 onEvaluationSubmitted();
               }}
             />
+          ) : formFailed ? (
+            <div role="alert" className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+              <p>Couldn't load your evaluation form. Check the connection.</p>
+              <button type="button" className={`${buttonClasses('secondary')} mt-2`} onClick={onRetryForm}>
+                Try again
+              </button>
+            </div>
+          ) : (
+            <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">Loading your evaluation…</p>
           )}
         </div>
       </div>

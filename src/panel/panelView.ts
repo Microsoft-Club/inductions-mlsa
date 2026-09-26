@@ -41,7 +41,10 @@ export function shownInterview(panel: BoardPanel, recent: PanelInterview[], pinn
   return recent[0] ? fromPanelInterview(recent[0]) : null;
 }
 
-/** The panel's other interviews, newest first, marking those this panelist hasn't evaluated. */
-export function recentList(recent: PanelInterview[], shownId: string | null, evaluated: Set<string>) {
-  return recent.filter((i) => i.id !== shownId).map((i) => ({ ...i, pending: !evaluated.has(i.id) }));
+/**
+ * The panel's other interviews, newest first, marking those this panelist hasn't evaluated.
+ * `evaluated` is null while their evaluations are unknown; nothing is marked pending then.
+ */
+export function recentList(recent: PanelInterview[], shownId: string | null, evaluated: Set<string> | null) {
+  return recent.filter((i) => i.id !== shownId).map((i) => ({ ...i, pending: evaluated !== null && !evaluated.has(i.id) }));
 }
