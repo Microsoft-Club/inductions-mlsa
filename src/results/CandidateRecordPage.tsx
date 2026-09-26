@@ -8,6 +8,7 @@ import { useApi } from '../lib/ApiProvider.tsx';
 import { formatElapsed, parseServerTime } from '../lib/clock.ts';
 import type { CandidateRecord, Criterion, RecordInterview } from '../lib/types.ts';
 import { ApplicationTabs } from '../panel/ApplicationTabs.tsx';
+import { authorColours } from '../panel/authorColours.ts';
 import { CandidateCard } from '../panel/CandidateCard.tsx';
 import { RECOMMENDATIONS } from '../panel/evaluation.ts';
 import { DecisionSelect } from './DecisionSelect.tsx';
@@ -84,6 +85,7 @@ export function CandidateRecordPage() {
 }
 
 function InterviewRecord({ interview, criteria }: { interview: RecordInterview; criteria: Criterion[] }) {
+  const colours = authorColours(interview.messages.map((m) => m.author_id));
   const timing =
     interview.status === 'cancelled'
       ? 'Cancelled (sent back to the queue)'
@@ -141,7 +143,7 @@ function InterviewRecord({ interview, criteria }: { interview: RecordInterview; 
           <ol className="mt-1 space-y-1 text-sm">
             {interview.messages.map((m) => (
               <li key={m.id}>
-                <span className="font-medium">{m.author_name}</span> <span className="text-xs text-slate-500">{clock(m.created_at)}</span>
+                <span className={`font-medium ${colours.get(m.author_id)}`}>{m.author_name}</span> <span className="text-xs text-slate-500">{clock(m.created_at)}</span>
                 <p dir="auto" className="whitespace-pre-wrap">
                   {m.body}
                 </p>

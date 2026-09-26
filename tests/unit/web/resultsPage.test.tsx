@@ -158,4 +158,20 @@ describe('a candidate record', () => {
     expect(within(evaluations).getAllByRole('row')).toHaveLength(3);
     expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key/);
   });
+
+  it("colours each panelist's name in the discussion", async () => {
+    const record = candidateRecordFor(candidateRow());
+    const say = (id: string, author_id: string, author_name: string) => ({
+      id, interview_id: 'i7', author_id, author_name, body: `${author_name} says hi`, created_at: '2026-09-26T09:55:00Z',
+    });
+    record.interviews[0].messages = [say('m1', 'u1', 'Hamza'), say('m2', 'u2', 'Mariam'), say('m3', 'u1', 'Hamza')];
+    await openResults('/results/c7', { candidateRecord: vi.fn(async () => record) });
+    const interview = await screen.findByRole('region', { name: 'Panel 1 interview' });
+    const colourOf = (el: HTMLElement) => [...el.classList].find((c) => /^text-[a-z]+-\d{3}$/.test(c));
+    const [first, again] = within(interview).getAllByText('Hamza', { selector: 'span' }).map(colourOf);
+    const mariam = colourOf(within(interview).getByText('Mariam', { selector: 'span' }));
+    expect(first).toBeDefined();
+    expect(first).toBe(again);
+    expect(mariam).not.toBe(first);
+  });
 });
