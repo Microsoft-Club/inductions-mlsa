@@ -71,6 +71,7 @@ function AccountRow({ account, isMe }: { account: Account; isMe: boolean }) {
   const [resetting, setResetting] = useState(false);
   const [password, setPassword] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const name = account.display_name;
 
   async function saveReset(event: FormEvent) {
@@ -80,10 +81,12 @@ function AccountRow({ account, isMe }: { account: Account; isMe: boolean }) {
       setProblem(parsed.error);
       return;
     }
+    setSaving(true);
     const done = await run(async () => {
       await api.manageAccount(parsed.command);
       return true;
     });
+    setSaving(false);
     if (done) {
       toast.show(`Password reset for ${name}`, 'success');
       setResetting(false);
@@ -111,7 +114,7 @@ function AccountRow({ account, isMe }: { account: Account; isMe: boolean }) {
             <button type="button" className={buttonClasses('ghost')} onClick={() => setPassword(generatePassword())}>
               Generate
             </button>
-            <button type="submit" className={buttonClasses('primary')}>
+            <button type="submit" className={buttonClasses('primary')} disabled={saving}>
               Save
             </button>
             <button type="button" className={buttonClasses('ghost')} onClick={() => setResetting(false)}>

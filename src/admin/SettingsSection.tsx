@@ -67,16 +67,19 @@ interface SettingsFormProps {
 function SettingsForm({ name, minutes, disabled, problem, onName, onMinutes, onProblem, onSaved }: SettingsFormProps) {
   const api = useApi();
   const run = useRunAction();
+  const [saving, setSaving] = useState(false);
 
   async function save(event: FormEvent) {
     event.preventDefault();
     const found = settingsProblem(name, minutes);
     onProblem(found);
     if (found) return;
+    setSaving(true);
     const done = await run(async () => {
       await api.updateSettings(name.trim(), Number(minutes));
       return true;
     });
+    setSaving(false);
     if (done) onSaved();
   }
 
@@ -91,7 +94,7 @@ function SettingsForm({ name, minutes, disabled, problem, onName, onMinutes, onP
         <input className={inputClasses} type="number" min={1} max={180} value={minutes} onChange={(e) => onMinutes(e.target.value)} disabled={disabled} />
       </label>
       <div className="flex items-end">
-        <button type="submit" className={buttonClasses('primary', 'md')} disabled={disabled}>
+        <button type="submit" className={buttonClasses('primary', 'md')} disabled={disabled || saving}>
           Save settings
         </button>
       </div>
