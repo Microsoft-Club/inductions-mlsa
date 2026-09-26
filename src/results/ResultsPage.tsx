@@ -153,6 +153,7 @@ export function ResultsPage() {
                 <SortHeader label="Name" sortKey="full_name" sort={sort} onSort={sortBy} />
                 <th className="px-3 py-2">Preferences</th>
                 <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Panel</th>
                 <SortHeader label="Evals" sortKey="evaluation_count" sort={sort} onSort={sortBy} />
                 <SortHeader label="General avg" sortKey="general_avg" sort={sort} onSort={sortBy} />
                 {fit.map((c) => (
@@ -176,6 +177,7 @@ export function ResultsPage() {
                     {rankedPreferences(row.preferences).map((p) => `${p.rank}. ${p.team}`).join(' · ')}
                   </td>
                   <td className="px-3 py-2">{STATUS_LABELS[row.status]}</td>
+                  <td className="px-3 py-2">{row.panels.length > 0 ? row.panels.join(', ') : '—'}</td>
                   <td className="px-3 py-2 tabular-nums">{row.evaluation_count}</td>
                   <td className="px-3 py-2 font-medium tabular-nums">{formatAverage(row.general_avg)}</td>
                   {fit.map((c) => (

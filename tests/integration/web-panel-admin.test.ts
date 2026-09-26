@@ -126,9 +126,11 @@ describe('panelist, admin and results API', () => {
     const row = (await admin.resultsTable()).find((r) => r.candidate_id === candidateId)!;
     expect(sortedKeys(row)).toEqual([
       'batch', 'candidate_id', 'criteria_avgs', 'decision', 'department', 'evaluation_count', 'full_name', 'general_avg',
-      'number', 'preferences', 'recommendations', 'reg_number', 'status',
+      'number', 'panels', 'preferences', 'recommendations', 'reg_number', 'status',
     ]);
     expect(row).toMatchObject({ evaluation_count: 1, general_avg: 4.5, recommendations: { strong_yes: 1 }, criteria_avgs: { fit_dev: 5 } });
+    const panelName = (await admin.boardSnapshot()).panels.find((p) => p.id === panelId)!.name;
+    expect(row.panels).toEqual([panelName]);
 
     const record = await admin.candidateRecord(candidateId);
     expect(sortedKeys(record)).toEqual(['candidate', 'interviews']);

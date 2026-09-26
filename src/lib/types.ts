@@ -213,6 +213,8 @@ export interface ResultRow {
   preferences: string[];
   status: CandidateStatus;
   decision: Decision;
+  /** The panels that interviewed them, first interview first (cancelled send-ins left out). */
+  panels: string[];
   evaluation_count: number;
   general_avg: number | null;
   criteria_avgs: Record<string, number>;
