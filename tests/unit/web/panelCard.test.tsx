@@ -52,6 +52,10 @@ describe('PanelCard', () => {
     expect(within(card).getByText('Present: Hamza')).toBeInTheDocument();
     expect(within(card).queryByRole('button', { name: /^Send #/ })).toBeNull();
 
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    await userEvent.click(within(card).getByRole('button', { name: 'End interview' }));
+    expect(confirm).toHaveBeenCalledWith('End the interview with #7 Sara Ahmed in Panel 1?');
+    expect(api.endInterview).not.toHaveBeenCalled(); // cancelled
     await userEvent.click(within(card).getByRole('button', { name: 'End interview' }));
     await userEvent.click(within(card).getByRole('button', { name: 'Undo send-in' }));
     expect(api.endInterview).toHaveBeenCalledWith('i7');

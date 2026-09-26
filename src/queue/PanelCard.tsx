@@ -45,7 +45,13 @@ export function PanelCard({ panel, targetMinutes, role }: PanelCardProps) {
               <Timer startedAt={current.started_at} targetMinutes={targetMinutes} className="text-lg font-semibold" />
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <ActionButton variant="primary" action={() => api.endInterview(current.interview_id)}>End interview</ActionButton>
+              <ActionButton
+                variant="primary"
+                confirm={`End the interview with #${current.number} ${current.name} in ${panel.name}?`}
+                action={() => api.endInterview(current.interview_id)}
+              >
+                End interview
+              </ActionButton>
               <ActionButton action={() => api.undoSendIn(current.interview_id)}>Undo send-in</ActionButton>
             </div>
           </div>
