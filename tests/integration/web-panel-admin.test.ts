@@ -134,7 +134,7 @@ describe('panelist, admin and results API', () => {
 
     const exported = (await admin.evaluationsExport()).filter((e) => e.reg_number === reg);
     expect(exported).toHaveLength(1);
-    expect(sortedKeys(exported[0])).toEqual(['comments', 'full_name', 'number', 'panel', 'panelist', 'recommendation', 'reg_number', 'scores', 'submitted_at']);
+    expect(sortedKeys(exported[0])).toEqual(['comments', 'full_name', 'number', 'panel', 'panelist', 'recommendation', 'reg_number', 'scores', 'submitted_at', 'updated_at']);
 
     await admin.setDecision(candidateId, 'selected');
     expect(await anon.publishedResults()).not.toContainEqual({ full_name: 'Plan Three Tester', reg_number: reg });

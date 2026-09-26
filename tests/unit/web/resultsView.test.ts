@@ -72,15 +72,15 @@ describe('CSV exports', () => {
   it('writes one row per evaluation with every criterion', () => {
     const exported: EvaluationExportRow[] = [{
       number: 7, reg_number: '2025007', full_name: 'Sara Ahmed', panel: 'Panel 1', panelist: 'Hamza',
-      scores: { communication: 4, fit_dev: 5 }, recommendation: 'strong_yes', comments: '=cmd', submitted_at: '2026-09-26T10:07:00+00:00',
+      scores: { communication: 4, fit_dev: 5 }, recommendation: 'strong_yes', comments: '=cmd', submitted_at: '2026-09-26T10:07:00+00:00', updated_at: '2026-09-26T19:30:05.123+00:00',
     }];
     const parsed = Papa.parse<string[]>(evaluationsCsv(exported, criteriaList())).data;
     expect(parsed[0]).toEqual([
       'Number', 'Reg number', 'Name', 'Panel', 'Panelist', 'Communication', 'Confidence & Attitude', 'Teamwork', 'Commitment',
-      'Problem Solving', 'Dev', 'LogiKal', 'L&D', 'Marketing', 'Recommendation', 'Comments', 'Submitted at',
+      'Problem Solving', 'Dev', 'LogiKal', 'L&D', 'Marketing', 'Recommendation', 'Comments', 'Submitted at (PKT)', 'Last changed (PKT)',
     ]);
     expect(parsed[1]).toEqual([
-      '7', '2025007', 'Sara Ahmed', 'Panel 1', 'Hamza', '4', '', '', '', '', '5', '', '', '', 'Strong Yes', "'=cmd", '2026-09-26T10:07:00+00:00',
+      '7', '2025007', 'Sara Ahmed', 'Panel 1', 'Hamza', '4', '', '', '', '', '5', '', '', '', 'Strong Yes', "'=cmd", '2026-09-26 15:07:00', '2026-09-27 00:30:05',
     ]);
   });
 
