@@ -1,5 +1,6 @@
 // Pure decisions behind the panelist screen.
-import type { BoardPanel, BoardSnapshot, InterviewStatus, PanelInterview } from '../lib/types.ts';
+import { parseServerTime } from '../lib/clock.ts';
+import type { BoardPanel, BoardSnapshot, InterviewStatus, MyEvaluationWithInterview, PanelInterview } from '../lib/types.ts';
 
 /** The panel this person is sitting in, from the board's "panelists present" lists. */
 export function myPanel(board: BoardSnapshot, userId: string): BoardPanel | null {
@@ -23,11 +24,17 @@ const fromPanelInterview = (i: PanelInterview): ShownInterview => ({
 });
 
 /**
- * What the panelist sees: an interview they opened from Recent; otherwise the one in progress;
- * otherwise the panel's latest one, which stays open after it ends (spec §9).
+ * What the panelist sees: an interview they opened from Recent or from their evaluations; otherwise
+ * the one in progress; otherwise the panel's latest one, which stays open after it ends (spec §9).
  */
-export function shownInterview(panel: BoardPanel, recent: PanelInterview[], pinnedId: string | null): ShownInterview | null {
-  const pinned = pinnedId ? recent.find((i) => i.id === pinnedId) : undefined;
+export function shownInterview(
+  panel: BoardPanel,
+  recent: PanelInterview[],
+  pinnedId: string | null,
+  evaluated: MyEvaluationWithInterview[] = [],
+): ShownInterview | null {
+  // Recent reloads with every board change, so it wins over the evaluations' copy of the same interview.
+  const pinned = pinnedId ? (recent.find((i) => i.id === pinnedId) ?? evaluated.find((e) => e.interview_id === pinnedId)?.interview) : undefined;
   if (pinned) return fromPanelInterview(pinned);
   if (panel.current) {
     return {
@@ -47,4 +54,9 @@ export function shownInterview(panel: BoardPanel, recent: PanelInterview[], pinn
  */
 export function recentList(recent: PanelInterview[], shownId: string | null, evaluated: Set<string> | null) {
   return recent.filter((i) => i.id !== shownId).map((i) => ({ ...i, pending: evaluated !== null && !evaluated.has(i.id) }));
+}
+
+/** The candidates this panelist has evaluated, newest interview first. */
+export function evaluatedList(evaluations: MyEvaluationWithInterview[]): MyEvaluationWithInterview[] {
+  return [...evaluations].sort((a, b) => parseServerTime(b.interview.started_at) - parseServerTime(a.interview.started_at));
 }

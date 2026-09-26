@@ -16,7 +16,7 @@ import type {
   ImportResult,
   ImportRow,
   InductionSettings,
-  MyEvaluation,
+  MyEvaluationWithInterview,
   PanelInterview,
   PublishedResult,
   Recommendation,
@@ -81,8 +81,11 @@ export interface Api {
   /** `id` comes from the browser so a retry after a failed send can't post twice. */
   postMessage(interviewId: string, body: string, id: string): Promise<ChatMessage>;
   evaluationCount(interviewId: string): Promise<number>;
-  /** This person's own evaluations (admins can read everyone's, hence the explicit user id). */
-  myEvaluations(userId: string): Promise<MyEvaluation[]>;
+  /**
+   * This person's own evaluations in the induction, with their interviews (cancelled ones left out).
+   * Admins can read everyone's, hence the explicit user id.
+   */
+  myEvaluations(userId: string, inductionId: string): Promise<MyEvaluationWithInterview[]>;
   submitEvaluation(interviewId: string, scores: Scores, recommendation: Recommendation, comments: string): Promise<void>;
   subscribeInterview(interviewId: string): Subscribe;
 
@@ -201,12 +204,17 @@ export function createApi(client: SupabaseClient, { timeoutMs = 15_000, importTi
     postMessage: (interviewId, body, id) =>
       rpc<ChatMessage>('post_message', { p_interview_id: interviewId, p_body: body, p_id: id }),
     evaluationCount: (interviewId) => rpc<number>('evaluation_count', { p_interview_id: interviewId }),
-    myEvaluations: (userId) =>
-      send<MyEvaluation[]>((signal) =>
+    myEvaluations: (userId, inductionId) =>
+      send<MyEvaluationWithInterview[]>((signal) =>
         client
           .from('evaluations')
-          .select('interview_id, scores, recommendation, comments, updated_at')
+          .select(
+            'interview_id, scores, recommendation, comments, updated_at, ' +
+              'interview:interviews!inner(id, status, started_at, ended_at, panel:panels(name), candidate:candidates(id, number, full_name))',
+          )
           .eq('panelist_id', userId)
+          .eq('interview.induction_id', inductionId)
+          .neq('interview.status', 'cancelled')
           .abortSignal(signal),
       ),
     submitEvaluation: (interviewId, scores, recommendation, comments) =>

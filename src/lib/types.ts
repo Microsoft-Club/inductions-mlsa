@@ -188,6 +188,11 @@ export interface MyEvaluation {
   updated_at: string;
 }
 
+/** One of the panelist's own evaluations with its interview, for their history (any panel). */
+export interface MyEvaluationWithInterview extends MyEvaluation {
+  interview: PanelInterview & { panel: { name: string } };
+}
+
 export type Account = Profile;
 
 export interface InductionSettings {
