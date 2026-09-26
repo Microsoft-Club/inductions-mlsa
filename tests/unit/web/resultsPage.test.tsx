@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Api } from '../../../src/lib/api.ts';
+import type { ResultRow } from '../../../src/lib/types.ts';
 import { downloadCsv } from '../../../src/results/download.ts';
 import { candidateRecordFor, candidateRow, profile, resultRow } from './fixtures.ts';
 import { fakeApi, fakeAuth, renderApp } from './helpers.tsx';
@@ -93,6 +94,39 @@ describe('the results page', () => {
     await waitFor(() => expect(downloadCsv).toHaveBeenCalledTimes(2));
     expect(api.evaluationsExport).toHaveBeenCalled();
     expect(vi.mocked(downloadCsv).mock.calls[1][0]).toMatch(/^fall-2026-evaluations-/);
+  });
+});
+
+describe('the results page with other admins at work', () => {
+  it('exports the latest decisions, not the table on screen', async () => {
+    let table = rows;
+    await openResults('/results', { resultsTable: vi.fn(async () => table) });
+    await screen.findByRole('table', { name: 'Results' });
+    table = rows.map((r) => (r.candidate_id === 'c7' ? { ...r, decision: 'selected' as const } : r)); // another admin decided
+    vi.mocked(downloadCsv).mockClear();
+    await userEvent.click(screen.getByRole('button', { name: 'Export candidates' }));
+    await waitFor(() => expect(downloadCsv).toHaveBeenCalledTimes(1));
+    const csv = vi.mocked(downloadCsv).mock.calls[0][1];
+    expect(csv.split('\r\n').find((line) => line.startsWith('7,'))).toMatch(/,Selected$/);
+  });
+
+  it('keeps the newest answer when two reloads come back out of order', async () => {
+    const answers: Array<(value: ResultRow[]) => void> = [];
+    let calls = 0;
+    await openResults('/results', {
+      resultsTable: vi.fn(() => (calls++ === 0 ? Promise.resolve(rows) : new Promise<ResultRow[]>((resolve) => answers.push(resolve)))),
+    });
+    await screen.findByRole('table', { name: 'Results' });
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(() => expect(answers).toHaveLength(2));
+    const decision = () => screen.getByRole('combobox', { name: 'Decision for #9 Bilal Khan' });
+
+    answers[1](rows.map((r) => (r.candidate_id === 'c9' ? { ...r, decision: 'not_selected' as const } : r)));
+    await waitFor(() => expect(decision()).toHaveValue('not_selected'));
+    answers[0](rows); // the older reload answers last
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(decision()).toHaveValue('not_selected');
   });
 });
 

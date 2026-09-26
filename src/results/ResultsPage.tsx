@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { ActionButton, buttonClasses } from '../components/ActionButton.tsx';
-import { ActionProvider, useRunAction } from '../components/ActionProvider.tsx';
+import { ActionProvider } from '../components/ActionProvider.tsx';
 import { FullPageMessage } from '../components/FullPageMessage.tsx';
 import { errorMessage } from '../lib/api.ts';
 import { useApi } from '../lib/ApiProvider.tsx';
@@ -34,15 +34,20 @@ export function ResultsPage() {
   const [filters, setFilters] = useState<Filters>({ status: 'all', decision: 'all', query: '' });
   const [sort, setSort] = useState<SortState>({ key: 'number', dir: 'asc' });
 
+  // Reloads can overlap (Refresh, and one after every decision); only the newest one may land.
+  const generation = useRef(0);
   const load = useCallback(async () => {
+    const mine = ++generation.current;
     try {
       const [table, settings] = await Promise.all([api.resultsTable(), api.induction()]);
+      if (mine !== generation.current) return;
       setRows(table);
       setInduction(settings);
       setError(null);
-      setCriteria(await api.criteria(settings.id));
+      const list = await api.criteria(settings.id);
+      if (mine === generation.current) setCriteria(list);
     } catch (e) {
-      setError(errorMessage(e));
+      if (mine === generation.current) setError(errorMessage(e));
     }
   }, [api]);
 
@@ -84,7 +89,7 @@ export function ResultsPage() {
             <button type="button" className={buttonClasses('ghost', 'md')} onClick={() => void load()}>
               Refresh
             </button>
-            <ExportButtons rows={rows} criteria={criteria} inductionName={induction.name} />
+            <ExportButtons induction={induction} />
             <PublishControl published={induction.results_published} />
           </div>
         </div>
@@ -204,27 +209,29 @@ function SortHeader({ label, sortKey, sort, onSort }: { label: string; sortKey: 
   );
 }
 
-function ExportButtons({ rows, criteria, inductionName }: { rows: ResultRow[]; criteria: Criterion[]; inductionName: string }) {
+/** Both exports read fresh from the server, so a file never carries a decision this page hasn't reloaded yet. */
+function ExportButtons({ induction }: { induction: InductionSettings }) {
   const api = useApi();
-  const run = useRunAction();
   return (
     <>
-      <button
-        type="button"
-        className={buttonClasses('secondary', 'md')}
-        onClick={() => downloadCsv(csvFileName('candidates', inductionName), candidatesCsv(rows, criteria))}
+      <ActionButton
+        size="md"
+        action={async () => {
+          const [table, criteria] = await Promise.all([api.resultsTable(), api.criteria(induction.id)]);
+          downloadCsv(csvFileName('candidates', induction.name), candidatesCsv(table, criteria));
+        }}
       >
         Export candidates
-      </button>
-      <button
-        type="button"
-        className={buttonClasses('secondary', 'md')}
-        onClick={() =>
-          void run(async () => downloadCsv(csvFileName('evaluations', inductionName), evaluationsCsv(await api.evaluationsExport(), criteria)))
-        }
+      </ActionButton>
+      <ActionButton
+        size="md"
+        action={async () => {
+          const [evaluations, criteria] = await Promise.all([api.evaluationsExport(), api.criteria(induction.id)]);
+          downloadCsv(csvFileName('evaluations', induction.name), evaluationsCsv(evaluations, criteria));
+        }}
       >
         Export evaluations
-      </button>
+      </ActionButton>
     </>
   );
 }
