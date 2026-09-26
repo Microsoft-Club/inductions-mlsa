@@ -148,4 +148,14 @@ describe('a candidate record', () => {
     expect(api.setDecision).toHaveBeenCalledWith('c7', 'not_selected');
     expect(screen.getByRole('link', { name: '← All results' })).toHaveAttribute('href', '/results');
   });
+
+  it('shows two evaluations from panelists with the same name', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const record = candidateRecordFor(candidateRow());
+    record.interviews[0].evaluations = record.interviews[0].evaluations.map((e) => ({ ...e, panelist_name: 'Ali' }));
+    await openResults('/results/c7', { candidateRecord: vi.fn(async () => record) });
+    const evaluations = await screen.findByRole('table', { name: 'Evaluations' });
+    expect(within(evaluations).getAllByRole('row')).toHaveLength(3);
+    expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key/);
+  });
 });
