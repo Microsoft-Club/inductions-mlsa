@@ -47,7 +47,7 @@ describe('sign in and routing', () => {
     const { router } = renderApp('/', { auth: fakeAuth({ signedInAs: profile('admin') }).backend });
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin'));
     const nav = screen.getByRole('navigation', { name: 'Screens' });
-    expect(nav).toHaveTextContent('QueuePanelAdmin');
+    expect(nav).toHaveTextContent('QueuePanelResultsAdmin');
     expect(await screen.findByText('http://localhost:3000/display?key=test-key')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));

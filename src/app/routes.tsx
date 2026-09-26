@@ -2,6 +2,8 @@ import type { RouteObject } from 'react-router';
 import { AdminPage } from '../admin/AdminPage.tsx';
 import { DisplayPage } from '../display/DisplayPage.tsx';
 import { PanelPage } from '../panel/PanelPage.tsx';
+import { CandidateRecordPage } from '../results/CandidateRecordPage.tsx';
+import { ResultsPage } from '../results/ResultsPage.tsx';
 import { QueuePage } from '../queue/QueuePage.tsx';
 import { LoginPage } from './LoginPage.tsx';
 import { HomeRedirect, NotFound } from './placeholders.tsx';
@@ -21,6 +23,8 @@ export const routes: RouteObject[] = [
       { path: 'queue', element: <RequireRole roles={['queue_manager', 'admin']}><QueuePage /></RequireRole> },
       { path: 'panel', element: <RequireRole roles={['panelist', 'admin']}><PanelPage /></RequireRole> },
       { path: 'admin', element: <RequireRole roles={['admin']}><AdminPage /></RequireRole> },
+      { path: 'results', element: <RequireRole roles={['admin']}><ResultsPage /></RequireRole> },
+      { path: 'results/:candidateId', element: <RequireRole roles={['admin']}><CandidateRecordPage /></RequireRole> },
     ],
   },
   { path: '*', element: <NotFound />, errorElement: <RouteError /> },

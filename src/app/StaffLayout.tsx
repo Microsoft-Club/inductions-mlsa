@@ -9,6 +9,7 @@ import { ROLE_LABELS } from './homePath.ts';
 const NAV: Array<{ to: string; label: string; roles: Role[] }> = [
   { to: '/queue', label: 'Queue', roles: ['queue_manager', 'admin'] },
   { to: '/panel', label: 'Panel', roles: ['panelist', 'admin'] },
+  { to: '/results', label: 'Results', roles: ['admin'] },
   { to: '/admin', label: 'Admin', roles: ['admin'] },
 ];
 
