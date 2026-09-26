@@ -41,6 +41,20 @@ describe('the results page', () => {
     expect(screen.getByRole('columnheader', { name: /Dev/ })).toBeInTheDocument();
   });
 
+  it('says which panel interviewed each candidate', async () => {
+    await openResults('/results', {
+      resultsTable: vi.fn(async () => [
+        resultRow({ candidate_id: 'c7', number: 7, panels: ['Panel 2'] }),
+        resultRow({ candidate_id: 'c2', number: 2, full_name: 'Ali Raza', panels: [] }),
+        resultRow({ candidate_id: 'c9', number: 9, full_name: 'Bilal Khan', panels: ['Panel 1', 'Panel 3'] }),
+      ]),
+    });
+    await screen.findByRole('table', { name: 'Results' });
+    const column = screen.getAllByRole('columnheader').findIndex((th) => th.textContent === 'Panel');
+    expect(column).toBeGreaterThan(-1);
+    expect(bodyRows().map((row) => within(row).getAllByRole('cell')[column].textContent)).toEqual(['—', 'Panel 2', 'Panel 1, Panel 3']);
+  });
+
   it('filters by status and decision, and sorts by a column', async () => {
     await openResults();
     await screen.findByRole('table', { name: 'Results' });

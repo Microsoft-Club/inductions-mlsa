@@ -188,6 +188,11 @@ export interface MyEvaluation {
   updated_at: string;
 }
 
+/** One of the panelist's own evaluations with its interview, for their history (any panel). */
+export interface MyEvaluationWithInterview extends MyEvaluation {
+  interview: PanelInterview & { panel: { name: string } };
+}
+
 export type Account = Profile;
 
 export interface InductionSettings {
@@ -208,6 +213,8 @@ export interface ResultRow {
   preferences: string[];
   status: CandidateStatus;
   decision: Decision;
+  /** The panels that interviewed them, first interview first (cancelled send-ins left out). */
+  panels: string[];
   evaluation_count: number;
   general_avg: number | null;
   criteria_avgs: Record<string, number>;

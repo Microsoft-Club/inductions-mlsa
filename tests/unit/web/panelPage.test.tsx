@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, NETWORK_ERROR, type Api } from '../../../src/lib/api.ts';
-import type { BoardSnapshot, PanelInterview } from '../../../src/lib/types.ts';
+import type { BoardSnapshot, MyEvaluationWithInterview, PanelInterview, Recommendation } from '../../../src/lib/types.ts';
 import { board, boardPanel, candidateRow, criteriaList, interview, lane, profile } from './fixtures.ts';
 import { fakeApi, fakeAuth, renderApp, type FakeApi } from './helpers.tsx';
 
@@ -23,6 +23,11 @@ function boardWithMe(panel1: Parameters<typeof boardPanel>[2] = {}, overrides: P
 const past = (n: number, name: string, status: PanelInterview['status'] = 'ended'): PanelInterview => ({
   id: `i${n}`, status, started_at: `2026-09-26T09:${String(n).padStart(2, '0')}:00Z`, ended_at: status === 'ended' ? '2026-09-26T10:00:00Z' : null,
   candidate: { id: `c${n}`, number: n, full_name: name },
+});
+
+/** Your evaluation of an interview, as myEvaluations returns it. */
+const mine = (i: PanelInterview, panel: string, recommendation: Recommendation = 'yes'): MyEvaluationWithInterview => ({
+  interview_id: i.id, scores: {}, recommendation, comments: '', updated_at: '2026-09-26T10:01:00Z', interview: { ...i, panel: { name: panel } },
 });
 
 async function openPanel(overrides: Partial<Api> = {}) {
@@ -60,7 +65,7 @@ describe('the panelist screen', () => {
       boardSnapshot: vi.fn(async () => boardWithMe({ current: null })),
       candidate: vi.fn(async (id: string) => candidateRow({ id, number: Number(id.slice(1)), full_name: id === 'c5' ? 'Hina Tariq' : 'Sara Ahmed' })),
       panelInterviews: vi.fn(async () => [past(7, 'Sara Ahmed'), past(6, 'Omar Farooq'), past(5, 'Hina Tariq')]),
-      myEvaluations: vi.fn(async () => [{ interview_id: 'i6', scores: {}, recommendation: 'yes' as const, comments: '', updated_at: '2026-09-26T10:01:00Z' }]),
+      myEvaluations: vi.fn(async () => [mine(past(6, 'Omar Farooq'), 'Panel 1')]),
     });
     expect(await screen.findByText(/^Interview ended/)).toBeInTheDocument();
     const recent = await screen.findByRole('region', { name: 'Recent' });
@@ -110,6 +115,74 @@ describe('the panelist screen', () => {
   });
 });
 
+describe('the candidates you evaluated', () => {
+  const zara = past(3, 'Zara Ali');
+  const omar = past(6, 'Omar Farooq');
+  const bilal = past(9, 'Bilal Khan');
+  const choose = (scope: HTMLElement, group: string, option: string) =>
+    userEvent.click(within(within(scope).getByRole('group', { name: group })).getByRole('radio', { name: option }));
+
+  it('lists everyone you evaluated in this induction, from any panel, newest first', async () => {
+    const { api } = await openPanel({
+      myEvaluations: vi.fn(async () => [mine(omar, 'Panel 1', 'maybe'), mine(zara, 'Panel 2', 'strong_yes'), mine(bilal, 'Panel 1', 'no')]),
+    });
+    const list = await screen.findByRole('region', { name: 'Candidates you evaluated' });
+    expect(within(list).getByRole('heading')).toHaveTextContent('Candidates you evaluated (3)');
+    const rows = within(list).getAllByRole('listitem');
+    expect(rows.map((row) => within(row).getByRole('button').textContent)).toEqual(['#9 Bilal Khan', '#6 Omar Farooq', '#3 Zara Ali']);
+    expect(rows[2]).toHaveTextContent('Panel 2');
+    expect(rows[2]).toHaveTextContent('Strong Yes');
+    expect(rows[0]).toHaveTextContent('No');
+    expect(api.myEvaluations).toHaveBeenCalledWith('u-panelist', 'ind-1');
+  });
+
+  it('opens a candidate you evaluated in another panel, with your evaluation filled in', async () => {
+    const { api } = await openPanel({
+      candidate: vi.fn(async (id: string) => candidateRow({ id, number: Number(id.slice(1)), full_name: id === 'c3' ? 'Zara Ali' : 'Sara Ahmed' })),
+      myEvaluations: vi.fn(async () => [{ ...mine(zara, 'Panel 2', 'strong_yes'), scores: { communication: 5 } }]),
+    });
+    const list = await screen.findByRole('region', { name: 'Candidates you evaluated' });
+    await userEvent.click(within(list).getByRole('button', { name: '#3 Zara Ali' }));
+    expect(await screen.findByRole('heading', { name: '#3 Zara Ali' })).toBeInTheDocument();
+    expect(api.candidate).toHaveBeenLastCalledWith('c3');
+    const form = await screen.findByRole('region', { name: 'My evaluation' });
+    expect(within(within(form).getByRole('group', { name: 'Overall recommendation' })).getByRole('radio', { name: 'Strong Yes' })).toBeChecked();
+    expect(within(within(form).getByRole('group', { name: 'Communication' })).getByRole('radio', { name: '5' })).toBeChecked();
+    await userEvent.click(screen.getByRole('button', { name: 'Back to the current interview' }));
+    expect(await screen.findByRole('heading', { name: '#7 Sara Ahmed' })).toBeInTheDocument();
+  });
+
+  it('refreshes the list when you open a candidate, so their interview shows as it is now', async () => {
+    let endedSince = false; // Panel 2 finished with Zara after you left it
+    await openPanel({
+      candidate: vi.fn(async (id: string) => candidateRow({ id, number: Number(id.slice(1)), full_name: id === 'c3' ? 'Zara Ali' : 'Sara Ahmed' })),
+      myEvaluations: vi.fn(async () => [mine(endedSince ? zara : past(3, 'Zara Ali', 'in_progress'), 'Panel 2')]),
+    });
+    const list = await screen.findByRole('region', { name: 'Candidates you evaluated' });
+    endedSince = true;
+    await userEvent.click(within(list).getByRole('button', { name: '#3 Zara Ali' }));
+    expect(await screen.findByRole('heading', { name: '#3 Zara Ali' })).toBeInTheDocument();
+    expect(await screen.findByText(/^Interview ended/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'End interview' })).toBeNull();
+  });
+
+  it('adds the candidate as soon as you submit your evaluation', async () => {
+    let submitted = false;
+    await openPanel({
+      myEvaluations: vi.fn(async () => (submitted ? [mine(past(7, 'Sara Ahmed', 'in_progress'), 'Panel 1')] : [])),
+      submitEvaluation: vi.fn(async () => {
+        submitted = true;
+      }),
+    });
+    const list = await screen.findByRole('region', { name: 'Candidates you evaluated' });
+    expect(within(list).getByText("You haven't evaluated anyone yet.")).toBeInTheDocument();
+    const form = await screen.findByRole('region', { name: 'My evaluation' });
+    await choose(form, 'Overall recommendation', 'Yes');
+    await userEvent.click(within(form).getByRole('button', { name: 'Submit evaluation' }));
+    expect(await within(list).findByRole('button', { name: '#7 Sara Ahmed' })).toBeInTheDocument();
+  });
+});
+
 describe('on a phone', () => {
   it('shows the newest messages when the Chat tab is opened', async () => {
     const msg = (id: string, body: string) => ({ id, interview_id: 'i7', author_id: 'u1', author_name: 'Hamza', body, created_at: '2026-09-26T09:55:00Z' });
@@ -151,7 +224,7 @@ describe('switching panel', () => {
 });
 
 describe('the panelist screen on a bad connection', () => {
-  const saved = { interview_id: 'i6', scores: { communication: 4 }, recommendation: 'yes' as const, comments: '', updated_at: '2026-09-26T10:01:00Z' };
+  const saved = { ...mine(past(6, 'Omar Farooq'), 'Panel 1'), scores: { communication: 4 } };
   const offline = () => Promise.reject(new ApiError(NETWORK_ERROR));
 
   /** Criteria and your evaluations fail until `net.online` is set; each board read has a new server time. */

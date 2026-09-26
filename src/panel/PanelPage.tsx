@@ -5,11 +5,12 @@ import { ActionProvider, useRunAction } from '../components/ActionProvider.tsx';
 import { ConnectionBanner } from '../components/ConnectionBanner.tsx';
 import { FullPageMessage } from '../components/FullPageMessage.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
-import type { BoardPanel, BoardSnapshot, Criterion, MyEvaluation, PanelInterview, Profile } from '../lib/types.ts';
+import type { BoardPanel, BoardSnapshot, Criterion, MyEvaluationWithInterview, PanelInterview, Profile } from '../lib/types.ts';
 import { useLiveSnapshot } from '../lib/useLiveSnapshot.ts';
+import { EvaluatedCandidates } from './EvaluatedCandidates.tsx';
 import { FindCandidate } from './FindCandidate.tsx';
 import { InterviewWorkspace } from './InterviewWorkspace.tsx';
-import { myPanel, recentList, shownInterview } from './panelView.ts';
+import { evaluatedList, myPanel, recentList, shownInterview } from './panelView.ts';
 import { RecentInterviews } from './RecentInterviews.tsx';
 
 /** /panel: the panelist's screen (admins can open it too). */
@@ -69,7 +70,7 @@ function PanelChooser({ board }: { board: BoardSnapshot }) {
 function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel; me: Profile }) {
   const api = useApi();
   const [recent, setRecent] = useState<PanelInterview[]>([]);
-  const [evaluations, setEvaluations] = useState<MyEvaluation[] | undefined>(undefined);
+  const [evaluations, setEvaluations] = useState<MyEvaluationWithInterview[] | undefined>(undefined);
   const [criteria, setCriteria] = useState<Criterion[] | null>(null);
   const [formFailed, setFormFailed] = useState(false);
   const [pinnedId, setPinnedId] = useState<string | null>(null);
@@ -92,7 +93,7 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
   const formReady = criteria !== null && evaluations !== undefined;
   const loadForm = useCallback(async () => {
     try {
-      const [rows, mine] = await Promise.all([api.criteria(inductionId), api.myEvaluations(me.id)]);
+      const [rows, mine] = await Promise.all([api.criteria(inductionId), api.myEvaluations(me.id, inductionId)]);
       setCriteria(rows);
       setEvaluations(mine);
       setFormFailed(false);
@@ -105,10 +106,14 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
   }, [formReady, loadForm, boardVersion]);
 
   const reloadEvaluations = useCallback(() => {
-    api.myEvaluations(me.id).then(setEvaluations, () => {}); // keep the list we have
-  }, [api, me.id]);
+    api.myEvaluations(me.id, inductionId).then(setEvaluations, () => {}); // keep the list we have
+  }, [api, me.id, inductionId]);
 
-  const shown = shownInterview(panel, recent, pinnedId);
+  const shown = shownInterview(panel, recent, pinnedId, evaluations);
+  const openEvaluated = (interviewId: string) => {
+    setPinnedId(interviewId);
+    reloadEvaluations(); // an interview in another panel may have ended since the list loaded
+  };
   const evaluated = evaluations ? new Set(evaluations.map((e) => e.interview_id)) : null;
   const next = panel.lane[0];
 
@@ -159,7 +164,10 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
         </p>
       )}
 
-      <RecentInterviews items={recentList(recent, shown?.id ?? null, evaluated)} onOpen={setPinnedId} />
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <RecentInterviews items={recentList(recent, shown?.id ?? null, evaluated)} onOpen={setPinnedId} />
+        {evaluations && <EvaluatedCandidates items={evaluatedList(evaluations)} onOpen={openEvaluated} />}
+      </div>
     </main>
   );
 }

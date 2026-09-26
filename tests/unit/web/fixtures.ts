@@ -126,6 +126,7 @@ export function resultRow(overrides: Partial<ResultRow> = {}): ResultRow {
     preferences: ['Dev Team', 'Marketing', '', ''],
     status: 'interviewed',
     decision: 'undecided',
+    panels: ['Panel 1'],
     evaluation_count: 2,
     general_avg: 3.75,
     criteria_avgs: { communication: 4, teamwork: 3.5, fit_dev: 5 },

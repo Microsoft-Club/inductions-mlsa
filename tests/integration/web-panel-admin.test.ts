@@ -106,10 +106,16 @@ describe('panelist, admin and results API', () => {
     expect(await panelistB.evaluationCount(interviewId!)).toBe(0);
     await panelistA.submitEvaluation(interviewId!, { communication: 4, teamwork: 5, fit_dev: 5 }, 'strong_yes', 'Great fit');
     expect(await panelistB.evaluationCount(interviewId!)).toBe(1);
-    const [mine] = await panelistA.myEvaluations(ids.a);
-    expect(sortedKeys(mine)).toEqual(['comments', 'interview_id', 'recommendation', 'scores', 'updated_at']);
+    const [mine] = await panelistA.myEvaluations(ids.a, inductionId);
+    expect(sortedKeys(mine)).toEqual(['comments', 'interview', 'interview_id', 'recommendation', 'scores', 'updated_at']);
     expect(mine).toMatchObject({ interview_id: interviewId, recommendation: 'strong_yes', scores: { communication: 4, teamwork: 5, fit_dev: 5 } });
-    expect(await panelistB.myEvaluations(ids.b)).toEqual([]);
+    // Enough to list it in the panelist's history and open it again, whichever panel they are in now.
+    expect(mine.interview).toEqual({
+      id: interviewId, status: 'in_progress', started_at: expect.any(String), ended_at: null,
+      panel: { name: board.panels.find((p) => p.id === panelId)!.name },
+      candidate: { id: candidateId, number: candidate.number, full_name: 'Plan Three Tester' },
+    });
+    expect(await panelistB.myEvaluations(ids.b, inductionId)).toEqual([]);
     expect(await qm.interviewMessages(interviewId!).catch((e: Error) => e.message)).toBe(NOT_ALLOWED);
 
     await expectEvent(panelistB.subscribeInterview(interviewId!), () => panelistA.postMessage(interviewId!, 'ping', crypto.randomUUID()));
@@ -120,9 +126,11 @@ describe('panelist, admin and results API', () => {
     const row = (await admin.resultsTable()).find((r) => r.candidate_id === candidateId)!;
     expect(sortedKeys(row)).toEqual([
       'batch', 'candidate_id', 'criteria_avgs', 'decision', 'department', 'evaluation_count', 'full_name', 'general_avg',
-      'number', 'preferences', 'recommendations', 'reg_number', 'status',
+      'number', 'panels', 'preferences', 'recommendations', 'reg_number', 'status',
     ]);
     expect(row).toMatchObject({ evaluation_count: 1, general_avg: 4.5, recommendations: { strong_yes: 1 }, criteria_avgs: { fit_dev: 5 } });
+    const panelName = (await admin.boardSnapshot()).panels.find((p) => p.id === panelId)!.name;
+    expect(row.panels).toEqual([panelName]);
 
     const record = await admin.candidateRecord(candidateId);
     expect(sortedKeys(record)).toEqual(['candidate', 'interviews']);
@@ -146,6 +154,12 @@ describe('panelist, admin and results API', () => {
     );
     await admin.setResultsPublished(false);
     interviewId = undefined;
+  });
+
+  it("leaves interviews that were sent back out of a panelist's evaluations", async () => {
+    const [evaluation] = await panelistA.myEvaluations(ids.a, inductionId);
+    await service.from('interviews').update({ status: 'cancelled' }).eq('id', evaluation.interview_id);
+    expect(await panelistA.myEvaluations(ids.a, inductionId)).toEqual([]);
   });
 
   it('manages accounts through the edge function, for admins only', async () => {
