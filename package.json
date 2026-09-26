@@ -13,6 +13,7 @@
     "functions:serve": "supabase functions serve",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
+    "test:e2e": "playwright test",
     "create-admin": "node scripts/create-admin.ts",
     "seed:dev": "node scripts/seed-dev.ts",
     "dev": "vite",
@@ -22,6 +23,7 @@
     "web:env": "node scripts/write-web-env.ts"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",

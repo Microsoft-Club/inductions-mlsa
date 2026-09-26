@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import { useAuth } from '../auth/AuthProvider.tsx';
 import { buttonClasses } from '../components/ActionButton.tsx';
@@ -8,6 +9,7 @@ import { ROLE_LABELS } from './homePath.ts';
 const NAV: Array<{ to: string; label: string; roles: Role[] }> = [
   { to: '/queue', label: 'Queue', roles: ['queue_manager', 'admin'] },
   { to: '/panel', label: 'Panel', roles: ['panelist', 'admin'] },
+  { to: '/results', label: 'Results', roles: ['admin'] },
   { to: '/admin', label: 'Admin', roles: ['admin'] },
 ];
 
@@ -15,10 +17,13 @@ const NAV: Array<{ to: string; label: string; roles: Role[] }> = [
 export function StaffLayout() {
   const { state, signOut } = useAuth();
   const location = useLocation();
+  // After "Sign out" the next person to sign in on this laptop should land on their own screen.
+  const [signedOutHere, setSignedOutHere] = useState(false);
 
   if (state.status === 'loading') return <FullPageMessage title="Loading…" />;
   if (state.status === 'signed_out') {
-    return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+    const next = signedOutHere ? '' : `?next=${encodeURIComponent(location.pathname + location.search)}`;
+    return <Navigate to={`/login${next}`} replace />;
   }
 
   const { profile } = state;
@@ -46,7 +51,14 @@ export function StaffLayout() {
           <span className="hidden text-slate-600 sm:inline">
             {profile.display_name} · {ROLE_LABELS[profile.role]}
           </span>
-          <button type="button" onClick={() => void signOut()} className={buttonClasses('ghost')}>
+          <button
+            type="button"
+            onClick={() => {
+              setSignedOutHere(true);
+              void signOut();
+            }}
+            className={buttonClasses('ghost')}
+          >
             Sign out
           </button>
         </div>

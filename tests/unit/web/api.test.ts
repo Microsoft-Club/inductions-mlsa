@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient, FunctionsFetchError, FunctionsHttpError, type SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, createApi, friendlyMessage, NETWORK_ERROR, NOT_ALLOWED, TIMEOUT_ERROR } from '../../../src/lib/api.ts';
 import { notAllowed } from '../../../src/lib/notAllowed.ts';
@@ -68,4 +68,63 @@ describe('createApi', () => {
     await expect(api.boardSnapshot()).rejects.toThrow(TIMEOUT_ERROR);
     await expect(api.listCandidates('ind-1')).rejects.toThrow(TIMEOUT_ERROR);
   }, 3000);
+});
+
+describe('panelist, admin and results calls', () => {
+  it('call each database function with its argument names', async () => {
+    const { rpc, client } = clientReturning({ data: null });
+    const api = createApi(client);
+    await api.setMyPanel('p1');
+    await api.setMyPanel(null);
+    await api.postMessage('i1', 'Strong answers', 'm1');
+    await api.submitEvaluation('i1', { communication: 4 }, 'yes', 'Good');
+    await api.updateSettings('Fall 2026', 20);
+    await api.setDecision('c1', 'selected');
+    await api.setResultsPublished(true);
+    expect(rpc.mock.calls).toEqual([
+      ['set_my_panel', { p_panel_id: 'p1' }],
+      ['set_my_panel', { p_panel_id: null }],
+      ['post_message', { p_interview_id: 'i1', p_body: 'Strong answers', p_id: 'm1' }],
+      ['submit_evaluation', { p_interview_id: 'i1', p_scores: { communication: 4 }, p_recommendation: 'yes', p_comments: 'Good' }],
+      ['update_settings', { p_name: 'Fall 2026', p_target_minutes: 20 }],
+      ['set_decision', { p_candidate_id: 'c1', p_decision: 'selected' }],
+      ['set_results_published', { p_published: true }],
+    ]);
+  });
+});
+
+describe('manageAccount', () => {
+  function functionsClient(result: { data: unknown; error: unknown }) {
+    const invoke = vi.fn(async () => result);
+    return { invoke, client: { functions: { invoke } } as unknown as SupabaseClient };
+  }
+
+  it('sends the command to the admin-users edge function', async () => {
+    const { invoke, client } = functionsClient({ data: { ok: true }, error: null });
+    await createApi(client).manageAccount({ action: 'set_active', userId: 'u1', active: false });
+    expect(invoke).toHaveBeenCalledWith('admin-users', expect.objectContaining({ body: { action: 'set_active', userId: 'u1', active: false } }));
+  });
+
+  it("shows the function's own message", async () => {
+    const error = new FunctionsHttpError(new Response(JSON.stringify({ error: 'Username already taken' }), { status: 400 }));
+    const { client } = functionsClient({ data: null, error });
+    await expect(
+      createApi(client).manageAccount({ action: 'create', username: 'hina', displayName: 'Hina', role: 'panelist', password: 'long-enough' }),
+    ).rejects.toEqual(new ApiError('Username already taken'));
+  });
+
+  it('treats a refusal as "Not allowed" and announces it', async () => {
+    const listener = vi.fn();
+    const stop = notAllowed.subscribe(listener);
+    const error = new FunctionsHttpError(new Response(JSON.stringify({ error: 'Not allowed' }), { status: 403 }));
+    const { client } = functionsClient({ data: null, error });
+    await expect(createApi(client).manageAccount({ action: 'set_active', userId: 'u1', active: true })).rejects.toThrow(NOT_ALLOWED);
+    expect(listener).toHaveBeenCalledTimes(1);
+    stop();
+  });
+
+  it('reports an unreachable function as a network problem', async () => {
+    const { client } = functionsClient({ data: null, error: new FunctionsFetchError(new TypeError('Failed to fetch')) });
+    await expect(createApi(client).manageAccount({ action: 'set_active', userId: 'u1', active: true })).rejects.toThrow(NETWORK_ERROR);
+  });
 });
