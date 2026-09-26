@@ -172,9 +172,15 @@ describe('panelist, admin and results API', () => {
     await admin.updateSettings('Fall 2026 (test)', 20);
     expect(await admin.induction()).toMatchObject({ name: 'Fall 2026 (test)', target_interview_minutes: 20 });
     const oldKey = await admin.getDisplayKey();
-    const newKey = await admin.regenerateDisplayKey();
-    expect(newKey).not.toBe(oldKey);
-    expect(await anon.displaySnapshot(oldKey)).toBeNull();
-    expect((await anon.displaySnapshot(newKey))?.induction_name).toBe('Fall 2026 (test)');
+    try {
+      const newKey = await admin.regenerateDisplayKey();
+      expect(newKey).not.toBe(oldKey);
+      expect(await anon.displaySnapshot(oldKey)).toBeNull();
+      expect((await anon.displaySnapshot(newKey))?.induction_name).toBe('Fall 2026 (test)');
+    } finally {
+      // Put the old key back, so a projector left open on the local link keeps working.
+      await service.from('inductions').update({ display_key: oldKey }).eq('is_active', true);
+    }
+    expect(await admin.getDisplayKey()).toBe(oldKey);
   });
 });
