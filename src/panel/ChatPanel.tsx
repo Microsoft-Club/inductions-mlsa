@@ -73,7 +73,7 @@ export function ChatPanel({ interviewId, live, meId, tabOpen = false }: ChatPane
         <h2 className="font-semibold">Discussion</h2>
         {live.status === 'reconnecting' && <span className="text-xs font-medium text-amber-700">Reconnecting…</span>}
       </header>
-      <ol ref={listRef} role="log" aria-label="Messages" className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
+      <ol ref={listRef} role="log" aria-label="Messages" className="max-h-[60vh] min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {saved.length + unsaved.length === 0 && <li className="text-sm text-slate-500">No messages yet.</li>}
         {saved.map((m) => (
           <MessageItem key={m.id} author={m.author_id === meId ? 'You' : m.author_name} time={m.created_at} body={m.body} />
