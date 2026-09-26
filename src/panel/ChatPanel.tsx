@@ -3,6 +3,7 @@ import { buttonClasses } from '../components/ActionButton.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
 import { parseServerTime } from '../lib/clock.ts';
 import type { LiveSnapshot } from '../lib/useLiveSnapshot.ts';
+import { chatDraftKey, forgetUnsent, loadChatDraft, saveChatDraft } from './chatDrafts.ts';
 import type { InterviewLive } from './useInterviewLive.ts';
 
 const MAX_LENGTH = 2000;
@@ -24,12 +25,21 @@ interface ChatPanelProps {
 /** The panel's discussion about this candidate. Your messages show at once and are matched to the saved copy. */
 export function ChatPanel({ interviewId, live, meId, tabOpen = false }: ChatPanelProps) {
   const api = useApi();
-  const [draft, setDraft] = useState('');
-  const [pending, setPending] = useState<Pending[]>([]);
+  const draftKey = chatDraftKey(meId, interviewId);
+  // Text and messages not yet on the server come back when this interview is shown again. A message
+  // still "sending" when it was closed comes back as not sent; Retry reuses its id, so it can't post twice.
+  const [restored] = useState(() => loadChatDraft(draftKey));
+  const [draft, setDraft] = useState(restored.text);
+  const [pending, setPending] = useState<Pending[]>(() => restored.unsent.map((u) => ({ ...u, failed: true })));
   const listRef = useRef<HTMLOListElement>(null);
   const saved = live.data?.messages ?? [];
   const savedIds = new Set(saved.map((m) => m.id));
   const unsaved = pending.filter((p) => !savedIds.has(p.id));
+  const unsent = JSON.stringify(unsaved.map(({ id, body }) => ({ id, body })));
+
+  useEffect(() => {
+    saveChatDraft(draftKey, { text: draft, unsent: JSON.parse(unsent) });
+  }, [draftKey, draft, unsent]);
 
   useEffect(() => {
     const list = listRef.current;
@@ -40,6 +50,7 @@ export function ChatPanel({ interviewId, live, meId, tabOpen = false }: ChatPane
     setPending((list) => list.map((p) => (p.id === id ? { ...p, failed: false } : p)));
     try {
       await api.postMessage(interviewId, body, id); // the same id on a retry, so it can't post twice
+      forgetUnsent(draftKey, id);
       live.reload();
     } catch {
       setPending((list) => list.map((p) => (p.id === id ? { ...p, failed: true } : p)));
