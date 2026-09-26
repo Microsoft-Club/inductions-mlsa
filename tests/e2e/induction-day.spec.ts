@@ -115,6 +115,9 @@ test('an induction day from import to the published list', async ({ browser }, t
   await evaluate(first, 'Strong Yes', '5');
   await evaluate(second, 'Yes', '4');
   await expect(second.getByText('2 panelists have submitted')).toBeVisible();
+  // Each panelist's own list of the candidates they evaluated (only their own recommendation).
+  const mine = first.getByRole('region', { name: 'Candidates you evaluated' }).getByRole('listitem').filter({ hasText: `#${number} ${candidateName}` });
+  await expect(mine).toContainText(`${panelName} · Strong Yes`);
 
   // Admin: results, decision, publish.
   await admin.goto('/results');
@@ -122,6 +125,7 @@ test('an induction day from import to the published list', async ({ browser }, t
   const row = admin.getByRole('table', { name: 'Results' }).getByRole('row').filter({ hasText: reg });
   await expect(row).toContainText('1 Strong Yes · 1 Yes');
   await expect(row).toContainText('4.5');
+  await expect(row).toContainText(panelName);
   await row.getByRole('combobox', { name: `Decision for #${number} ${candidateName}` }).selectOption('selected');
   await expect(row.getByRole('combobox')).toHaveValue('selected');
   admin.once('dialog', (dialog) => void dialog.accept());
