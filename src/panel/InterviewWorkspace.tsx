@@ -96,7 +96,7 @@ export function InterviewWorkspace({ interview, userId, criteria, evaluations, f
           )}
         </div>
         <div className={show('chat')}>
-          <ChatPanel interviewId={interview.id} live={live} meId={userId} />
+          <ChatPanel interviewId={interview.id} live={live} meId={userId} tabOpen={tab === 'chat'} />
         </div>
         <div className={show('evaluate')}>
           {evaluations && criteria ? (

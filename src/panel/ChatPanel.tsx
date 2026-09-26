@@ -17,10 +17,12 @@ interface ChatPanelProps {
   interviewId: string;
   live: LiveSnapshot<InterviewLive>;
   meId: string;
+  /** The phone's Chat tab is open. A hidden list can't scroll, so it scrolls to the newest message on opening. */
+  tabOpen?: boolean;
 }
 
 /** The panel's discussion about this candidate. Your messages show at once and are matched to the saved copy. */
-export function ChatPanel({ interviewId, live, meId }: ChatPanelProps) {
+export function ChatPanel({ interviewId, live, meId, tabOpen = false }: ChatPanelProps) {
   const api = useApi();
   const [draft, setDraft] = useState('');
   const [pending, setPending] = useState<Pending[]>([]);
@@ -32,7 +34,7 @@ export function ChatPanel({ interviewId, live, meId }: ChatPanelProps) {
   useEffect(() => {
     const list = listRef.current;
     if (list) list.scrollTop = list.scrollHeight;
-  }, [saved.length, unsaved.length]);
+  }, [saved.length, unsaved.length, tabOpen]);
 
   async function deliver(id: string, body: string) {
     setPending((list) => list.map((p) => (p.id === id ? { ...p, failed: false } : p)));

@@ -108,6 +108,19 @@ describe('the panelist screen', () => {
   });
 });
 
+describe('on a phone', () => {
+  it('shows the newest messages when the Chat tab is opened', async () => {
+    const msg = (id: string, body: string) => ({ id, interview_id: 'i7', author_id: 'u1', author_name: 'Hamza', body, created_at: '2026-09-26T09:55:00Z' });
+    await openPanel({ interviewMessages: vi.fn(async () => [msg('m1', 'First'), msg('m2', 'Second')]) });
+    const log = await screen.findByRole('log', { name: 'Messages' });
+    await within(log).findByText('Second');
+    Object.defineProperty(log, 'scrollHeight', { value: 480, configurable: true });
+    log.scrollTop = 0; // it was hidden behind the Application tab, so it never scrolled
+    await userEvent.click(screen.getByRole('tab', { name: 'Chat' }));
+    expect(log.scrollTop).toBe(480);
+  });
+});
+
 describe('switching panel', () => {
   it("starts fresh in the new panel, without the old panel's interviews", async () => {
     let where = 'p1';
