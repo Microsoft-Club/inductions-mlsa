@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router';
 import { AdminPage } from '../admin/AdminPage.tsx';
 import { DisplayPage } from '../display/DisplayPage.tsx';
 import { PanelPage } from '../panel/PanelPage.tsx';
+import { SelectedPage } from '../public/SelectedPage.tsx';
 import { CandidateRecordPage } from '../results/CandidateRecordPage.tsx';
 import { ResultsPage } from '../results/ResultsPage.tsx';
 import { QueuePage } from '../queue/QueuePage.tsx';
@@ -14,6 +15,7 @@ import { StaffLayout } from './StaffLayout.tsx';
 export const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage />, errorElement: <RouteError /> },
   { path: '/display', element: <DisplayPage />, errorElement: <RouteError /> },
+  { path: '/selected', element: <SelectedPage />, errorElement: <RouteError /> },
   {
     path: '/',
     element: <StaffLayout />,
