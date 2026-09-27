@@ -15,5 +15,5 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["vite/client", "@testing-library/jest-dom/vitest"]
   },
-  "include": ["src", "tests/setup.ts", "tests/unit/web", "vite.config.ts", "vitest.config.ts"]
+  "include": ["src", "server", "functions", "tests/setup.ts", "tests/unit/web", "tests/unit/photos", "vite.config.ts", "vitest.config.ts"]
 }
