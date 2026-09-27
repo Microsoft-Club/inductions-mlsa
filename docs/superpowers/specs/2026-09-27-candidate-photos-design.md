@@ -123,7 +123,8 @@ photo functions in §6.
   used as an enum literal inside the same transaction).
 - `candidates.photo_taken_at timestamptz` (null = no photo) and `candidates.photo_taken_by uuid references profiles on delete set null`.
   `updated_at` is **not** touched by photos (it tracks application and decision changes).
-- Photo file key: `<induction_id>/<candidate_id>.jpg`, built by an internal helper `photo_key(candidates)`.
+- Photo file key: `<induction_id>/<candidate_id>.jpg`, built by an internal helper `photo_key(induction_id, candidate_id)`. A second internal helper,
+  `photo_candidate(candidate_id, photographer_statuses)`, holds the role and status checks every upload shares.
 
 **Policies**
 - New: `"read own profile"` on `profiles`: `id = auth.uid() and is_active`. Any active user can read their own row,
@@ -144,7 +145,7 @@ photo functions in §6.
 
 - `lane_json` adds `has_photo` to every pool and lane entry (for the queue manager's icon and popup).
 - `candidate_record` already returns `to_jsonb(c)`, so it picks up `photo_taken_at` without changes.
-- Grants: the new functions are executable by `authenticated` only; `photo_key` by nobody.
+- Grants: the new functions are executable by `authenticated` only; `photo_key` and `photo_candidate` by nobody.
 
 ## 7. Photo API (Pages Function)
 
@@ -157,19 +158,23 @@ photo functions in §6.
 - The file is saved **before** the record, so the database never claims a photo that isn't there. A failure after the
   save leaves at most an unrecorded file that the next retake overwrites.
 - Errors are JSON `{ "error": "…" }`:
-  401 missing or expired login · 403 not allowed · 404 no photo / unknown candidate · 400 refused by the database
-  (its message passed through, for example "Candidate #12 is not waiting") · 405 wrong method · 413 too large ·
+  401 missing or expired login · 403 not allowed · 404 no photo (including an unknown candidate when viewing) · 400 refused by the database
+  (its message passed through, for example "Candidate #12 is not waiting" or, on upload, "Candidate not found") · 405 wrong method · 413 too large ·
   415 not a JPEG · 502 Supabase or R2 unreachable or too slow (10 s timeout).
 - `candidateId` must be a UUID (400 otherwise), so it can never form an unexpected key.
 - **Caching:** the server sends `no-store`, because a browser cache keyed only by URL could show one user's cached
   photo to the next person on a shared laptop. The app keeps its own in-memory cache instead (§8).
 
 **Code layout** (logic outside `functions/` so it can be unit-tested and reused by the local dev server)
+- `server/photos/limits.ts`: `PHOTO_LONG_SIDE` (800) and `MAX_PHOTO_BYTES` (1 MB), shared with the browser.
 - `server/photos/bucket.ts`: the `PhotoBucket` interface (`put`, `get`, `delete`, `list`), the subset of `R2Bucket` used.
 - `server/photos/gate.ts`: calls the Supabase RPCs with the user's token; maps PostgREST errors to the statuses above.
-- `server/photos/handler.ts`: `handlePhotoRequest(request, env, candidateId | null)`; method routing, limits, order of steps.
+- `server/photos/handler.ts`: `handlePhotoRequest(request, env, fetchImpl?)`; reads the path itself, then method routing, limits,
+  order of steps. `fetchImpl` lets tests fake Supabase.
 - `server/photos/folderBucket.ts`: a `PhotoBucket` backed by a local folder, for development and tests only.
-- `functions/api/photos/[candidateId].ts` and `functions/api/photos/index.ts`: thin Pages wrappers around the handler.
+- `server/photos/devServer.ts`: runs a Node request through the handler (the Vite dev server's `/api/photos`).
+- `functions/api/photos/[[path]].ts`: one catch-all Pages wrapper around the handler, for `/api/photos` and
+  `/api/photos/<id>`.
 - Types for the Pages context and R2 are declared by hand (minimal interfaces); no Cloudflare packages are added.
 
 ## 8. Frontend
@@ -217,7 +222,7 @@ photo functions in §6.
 
 ## 11. Testing
 
-- **Database (pgTAP, `supabase/tests/100_photos.test.sql`):** the photographer can read only their own profile and
+- **Database (pgTAP, `supabase/tests/130_candidate_photos.test.sql`):** the photographer can read only their own profile and
   nothing else (candidates, queue, board snapshot, interviews); `photo_queue` lists only waiting candidates; upload
   permission for each role and status; `record_photo` accepts `interviewing` for photographers; panelists can view but
   not upload; only admins can count, purge and clear; `has_photo` appears in `board_snapshot` lanes; the new realtime
