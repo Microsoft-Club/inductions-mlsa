@@ -60,3 +60,22 @@ export function recentList(recent: PanelInterview[], shownId: string | null, eva
 export function evaluatedList(evaluations: MyEvaluationWithInterview[]): MyEvaluationWithInterview[] {
   return [...evaluations].sort((a, b) => parseServerTime(b.interview.started_at) - parseServerTime(a.interview.started_at));
 }
+
+export interface PanelistStats {
+  interviewed: number;
+  evaluated: number;
+  pending: number;
+}
+
+/**
+ * The panelist's own numbers: evaluations they submitted (from any panel), and interviews on this
+ * panel that ended without their evaluation. Nothing records who sat in each interview, so
+ * "interviewed" is those two added up; an interview in progress counts once it's evaluated or ends.
+ * null while their evaluations are unknown.
+ */
+export function panelistStats(recent: PanelInterview[], evaluations: MyEvaluationWithInterview[] | undefined): PanelistStats | null {
+  if (!evaluations) return null;
+  const evaluated = new Set(evaluations.map((e) => e.interview_id));
+  const pending = recent.filter((i) => i.status === 'ended' && !evaluated.has(i.id)).length;
+  return { interviewed: evaluations.length + pending, evaluated: evaluations.length, pending };
+}
