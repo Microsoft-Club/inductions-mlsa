@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActionButton, buttonClasses } from '../components/ActionButton.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
 import type { BoardSnapshot } from '../lib/types.ts';
+import { ApplicationDialog } from '../panel/ApplicationDialog.tsx';
 import { CandidateName } from './bits.tsx';
 import { describeLocation, filterCandidates, LIST_FILTERS, type ListFilter } from './queueView.ts';
 import { useCandidates } from './useCandidates.ts';
@@ -19,12 +20,15 @@ interface CandidateListDialogProps {
   filter: ListFilter;
   onFilterChange: (filter: ListFilter) => void;
   onClose: () => void;
+  /** Admins can open anyone's full form from the list. */
+  canReadForms?: boolean;
 }
 
 /** Everyone with one status (or everyone), in number order: opened from the counts in the top bar. */
-export function CandidateListDialog({ board, filter, onFilterChange, onClose }: CandidateListDialogProps) {
+export function CandidateListDialog({ board, filter, onFilterChange, onClose, canReadForms = false }: CandidateListDialogProps) {
   const api = useApi();
   const [query, setQuery] = useState('');
+  const [openId, setOpenId] = useState<string | null>(null);
   const { list, error } = useCandidates(board, true);
   const counts: Record<ListFilter, number> = { ...board.counts, all: Object.values(board.counts).reduce((a, b) => a + b, 0) };
   const inList = list ? filterCandidates(list, filter, '') : [];
@@ -32,11 +36,11 @@ export function CandidateListDialog({ board, filter, onFilterChange, onClose }: 
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !openId) onClose(); // with a form open on top, Escape closes just the form
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  }, [onClose, openId]);
 
   return (
     <div
@@ -93,7 +97,13 @@ export function CandidateListDialog({ board, filter, onFilterChange, onClose }: 
               {shown.map((candidate) => (
                 <li key={candidate.id} className="flex items-center gap-3 px-5 py-2">
                   <div className="min-w-0 flex-1">
-                    <CandidateName number={candidate.number} name={candidate.full_name} className="block font-medium" />
+                    {canReadForms ? (
+                      <button type="button" className="block max-w-full text-left text-brand-700 hover:underline" onClick={() => setOpenId(candidate.id)}>
+                        <CandidateName number={candidate.number} name={candidate.full_name} className="block font-medium" />
+                      </button>
+                    ) : (
+                      <CandidateName number={candidate.number} name={candidate.full_name} className="block font-medium" />
+                    )}
                     <p className="text-xs text-slate-500">
                       {candidate.reg_number} · {describeLocation(board, candidate)}
                     </p>
@@ -113,6 +123,7 @@ export function CandidateListDialog({ board, filter, onFilterChange, onClose }: 
           Showing {shown.length} of {inList.length}
         </p>
       </div>
+      {openId && <ApplicationDialog candidateId={openId} onClose={() => setOpenId(null)} fullRecord />}
     </div>
   );
 }

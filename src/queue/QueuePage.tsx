@@ -64,7 +64,7 @@ export function QueuePage() {
   return (
     <ActionProvider onSettled={reload}>
       <ConnectionBanner status={status} />
-      <TopBar board={board} onImport={() => setImporting(true)} onShowList={openList} />
+      <TopBar board={board} onImport={() => setImporting(true)} onShowList={openList} canReadForms={role === 'admin'} />
       {error && (
         <p role="alert" className="bg-red-50 px-4 py-2 text-sm text-red-800">
           Couldn't refresh the board: {error}
@@ -79,7 +79,9 @@ export function QueuePage() {
         <PoolList board={board} />
       </main>
       {importing && <ImportDialog onClose={() => setImporting(false)} />}
-      {listFilter && <CandidateListDialog board={board} filter={listFilter} onFilterChange={openList} onClose={closeList} />}
+      {listFilter && (
+        <CandidateListDialog board={board} filter={listFilter} onFilterChange={openList} onClose={closeList} canReadForms={role === 'admin'} />
+      )}
     </ActionProvider>
   );
 }

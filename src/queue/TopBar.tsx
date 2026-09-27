@@ -16,9 +16,11 @@ interface TopBarProps {
   onImport: () => void;
   /** Opens the full list of candidates with that status. */
   onShowList: (filter: ListFilter) => void;
+  /** Admins can open a candidate's full form from the search results. */
+  canReadForms?: boolean;
 }
 
-export function TopBar({ board, onImport, onShowList }: TopBarProps) {
+export function TopBar({ board, onImport, onShowList, canReadForms = false }: TopBarProps) {
   const api = useApi();
   return (
     <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
@@ -35,7 +37,7 @@ export function TopBar({ board, onImport, onShowList }: TopBarProps) {
           </button>
         ))}
       </div>
-      <SearchBox board={board} />
+      <SearchBox board={board} canReadForms={canReadForms} />
       <div className="ml-auto flex gap-2">
         <button type="button" className={buttonClasses('secondary', 'md')} onClick={onImport}>
           Import CSV
