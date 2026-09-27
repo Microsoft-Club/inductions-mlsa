@@ -44,7 +44,7 @@ describe('CandidatePhoto', () => {
     expect(api.photoBlob).toHaveBeenCalledWith('c12', 'v1');
   });
 
-  it('downloads a retake and frees the old one', async () => {
+  it('downloads a retake and keeps the old photo for anyone still showing it', async () => {
     const api = fakeApi();
     const view = show(api, { id: 'c12', version: 'v1' });
     await screen.findByRole('img', { name: 'Photo of Ali Khan' });
@@ -54,7 +54,18 @@ describe('CandidatePhoto', () => {
       </ApiProvider>,
     );
     await waitFor(() => expect(screen.getByRole('img', { name: 'Photo of Ali Khan' })).toHaveAttribute('src', 'blob:2'));
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:1');
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+  });
+
+  it('shows two live views of the same candidate at different versions, neither breaking the other', async () => {
+    const api = fakeApi();
+    show(api, { id: 'c12', version: 'v1' }, { id: 'c12', version: 'v2' });
+    const images = await screen.findAllByRole('img', { name: 'Photo of Ali Khan' });
+    expect(images.map((img) => img.getAttribute('src')).sort()).toEqual(['blob:1', 'blob:2']);
+    expect(api.photoBlob).toHaveBeenCalledTimes(2);
+    expect(api.photoBlob).toHaveBeenCalledWith('c12', 'v1');
+    expect(api.photoBlob).toHaveBeenCalledWith('c12', 'v2');
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
   });
 
   it('shows the placeholder when the photo is missing', async () => {
