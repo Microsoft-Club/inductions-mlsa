@@ -2,8 +2,9 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { CandidateSummary } from '../../../src/lib/types.ts';
-import { profile } from './fixtures.ts';
+import type { Api } from '../../../src/lib/api.ts';
+import type { CandidateSummary, Role } from '../../../src/lib/types.ts';
+import { candidateRow, profile } from './fixtures.ts';
 import { fakeApi, fakeAuth, renderApp } from './helpers.tsx';
 
 // The board fixture has #7 interviewing in Panel 1, #12 lined up for Panel 2 and #20-#22 in the pool.
@@ -16,9 +17,9 @@ const people: CandidateSummary[] = [
   { id: 'c12', number: 12, full_name: 'Ali Raza', reg_number: '2025012', status: 'waiting' },
 ];
 
-async function openQueue(path = '/queue') {
-  const api = fakeApi({ listCandidates: vi.fn(async () => people) });
-  const view = renderApp(path, { api, auth: fakeAuth({ signedInAs: profile('queue_manager') }).backend });
+async function openQueue(path = '/queue', role: Role = 'queue_manager', overrides: Partial<Api> = {}) {
+  const api = fakeApi({ listCandidates: vi.fn(async () => people), ...overrides });
+  const view = renderApp(path, { api, auth: fakeAuth({ signedInAs: profile(role) }).backend });
   await screen.findByRole('region', { name: 'Panel 1' });
   return { ...view, api };
 }
@@ -89,5 +90,48 @@ describe('candidate list', () => {
       ['Interviewed', '/queue?list=interviewed'],
       ['Everyone', '/queue?list=all'],
     ]);
+  });
+});
+
+describe("a candidate's full form", () => {
+  // The form as the database returns it for whoever was clicked.
+  const byId = (id: string) => {
+    const person = people.find((p) => p.id === id)!;
+    return candidateRow({ id, number: person.number, full_name: person.full_name, reg_number: person.reg_number, status: person.status });
+  };
+
+  it('opens for an admin from the list, with a link to the full record, and Escape closes only the form', async () => {
+    const { api } = await openQueue('/queue?list=all', 'admin', { candidate: vi.fn(async (id: string) => byId(id)) });
+    const list = await screen.findByRole('list', { name: 'Candidates' });
+    expect(within(list).getByRole('button', { name: 'Check in #5' })).toBeInTheDocument(); // still there
+    await userEvent.click(within(list).getByRole('button', { name: '#5 Hina Tariq' }));
+
+    const form = await screen.findByRole('dialog', { name: 'Application of #5 Hina Tariq' });
+    expect(api.candidate).toHaveBeenCalledWith('c5');
+    expect(within(form).getByRole('tablist', { name: 'Application sections' })).toBeInTheDocument();
+    expect(within(form).getByRole('link', { name: /Full record/ })).toHaveAttribute('href', '/results/c5');
+
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /^Application of/ })).toBeNull());
+    expect(screen.getByRole('dialog', { name: 'Candidates' })).toBeInTheDocument(); // back on the list
+  });
+
+  it('opens for an admin from the search results too', async () => {
+    await openQueue('/queue', 'admin', { candidate: vi.fn(async (id: string) => byId(id)) });
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search candidates' }), 'hina');
+    const results = await screen.findByRole('list', { name: 'Search results' });
+    await userEvent.click(within(results).getByRole('button', { name: '#5 Hina Tariq' }));
+    expect(await screen.findByRole('dialog', { name: 'Application of #5 Hina Tariq' })).toBeInTheDocument();
+  });
+
+  it('stays closed to the queue manager: names are plain text', async () => {
+    await openQueue('/queue?list=all');
+    const list = await screen.findByRole('list', { name: 'Candidates' });
+    expect(within(list).getByText('Hina Tariq')).toBeInTheDocument();
+    expect(within(list).queryByRole('button', { name: '#5 Hina Tariq' })).toBeNull();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search candidates' }), 'hina');
+    const results = await screen.findByRole('list', { name: 'Search results' });
+    expect(within(results).queryByRole('button', { name: '#5 Hina Tariq' })).toBeNull();
   });
 });

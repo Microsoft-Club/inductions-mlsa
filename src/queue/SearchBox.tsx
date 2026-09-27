@@ -2,14 +2,16 @@ import { useState } from 'react';
 import { ActionButton } from '../components/ActionButton.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
 import type { BoardSnapshot } from '../lib/types.ts';
+import { ApplicationDialog } from '../panel/ApplicationDialog.tsx';
 import { CandidateName } from './bits.tsx';
 import { describeLocation, searchCandidates } from './queueView.ts';
 import { useCandidates } from './useCandidates.ts';
 
-/** Find anyone by number, name or reg number; check in people who haven't arrived yet. */
-export function SearchBox({ board }: { board: BoardSnapshot }) {
+/** Find anyone by number, name or reg number; check in people who haven't arrived yet. Admins can open the form. */
+export function SearchBox({ board, canReadForms = false }: { board: BoardSnapshot; canReadForms?: boolean }) {
   const api = useApi();
   const [query, setQuery] = useState('');
+  const [openId, setOpenId] = useState<string | null>(null);
   const searching = query.trim() !== '';
   const { list, error } = useCandidates(board, searching);
 
@@ -41,7 +43,13 @@ export function SearchBox({ board }: { board: BoardSnapshot }) {
               {results.map((candidate) => (
                 <li key={candidate.id} className="flex items-center gap-3 px-3 py-2">
                   <div className="min-w-0 flex-1">
-                    <CandidateName number={candidate.number} name={candidate.full_name} className="block font-medium" />
+                    {canReadForms ? (
+                      <button type="button" className="block max-w-full text-left text-brand-700 hover:underline" onClick={() => setOpenId(candidate.id)}>
+                        <CandidateName number={candidate.number} name={candidate.full_name} className="block font-medium" />
+                      </button>
+                    ) : (
+                      <CandidateName number={candidate.number} name={candidate.full_name} className="block font-medium" />
+                    )}
                     <p className="text-xs text-slate-500">
                       {candidate.reg_number} · {describeLocation(board, candidate)}
                     </p>
@@ -57,6 +65,7 @@ export function SearchBox({ board }: { board: BoardSnapshot }) {
           )}
         </div>
       )}
+      {openId && <ApplicationDialog candidateId={openId} onClose={() => setOpenId(null)} fullRecord />}
     </div>
   );
 }
