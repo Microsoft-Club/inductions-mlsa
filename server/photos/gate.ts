@@ -18,7 +18,7 @@ export interface SupabaseEnv {
   VITE_SUPABASE_ANON_KEY: string;
 }
 
-const TIMEOUT_MS = 10_000;
+export const TIMEOUT_MS = 10_000;
 
 /** Calls one database function with the user's own token (PostgREST RPC) and returns its result. */
 export async function callRpc<T>(env: SupabaseEnv, token: string, fn: string, args: Record<string, unknown>, fetchImpl: FetchLike): Promise<T> {
@@ -35,7 +35,8 @@ export async function callRpc<T>(env: SupabaseEnv, token: string, fn: string, ar
       body: JSON.stringify(args),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-  } catch {
+  } catch (e) {
+    console.error('photo API: database call failed', e);
     throw new PhotoError(502, "Can't reach the database. Try again.");
   }
   const text = await response.text().catch(() => '');

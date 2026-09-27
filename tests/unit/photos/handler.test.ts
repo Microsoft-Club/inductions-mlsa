@@ -87,12 +87,31 @@ describe('PUT /api/photos/:candidateId', () => {
     const { bucket } = memoryBucket();
     bucket.put.mockRejectedValueOnce(new Error('R2 is down'));
     const db = fakeSupabase({ authorize_photo_upload: { body: KEY }, record_photo: { body: TAKEN_AT } });
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const response = await handlePhotoRequest(request('PUT', `/api/photos/${ID}`, JPEG), envWith(bucket), db.fetchImpl);
 
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({ error: "Couldn't save the photo. Try again." });
     expect(db.fns()).toEqual(['authorize_photo_upload']);
+    expect(spy).toHaveBeenCalledWith('photo API: saving the file failed', expect.any(Error));
+    spy.mockRestore();
+  });
+
+  it('returns 502 when bucket.put times out (never resolves)', async () => {
+    const { bucket } = memoryBucket();
+    bucket.put.mockImplementation(() => new Promise(() => {})); // Never resolves
+    const db = fakeSupabase({ authorize_photo_upload: { body: KEY }, record_photo: { body: TAKEN_AT } });
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // Pass a short 100ms timeout so we don't wait 10 seconds in the test
+    const response = await handlePhotoRequest(request('PUT', `/api/photos/${ID}`, JPEG), envWith(bucket), db.fetchImpl, 100);
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "Couldn't save the photo. Try again." });
+    expect(db.fns()).toEqual(['authorize_photo_upload']);
+    expect(spy).toHaveBeenCalledWith('photo API: saving the file failed', expect.any(Error));
+    spy.mockRestore();
   });
 
   it('refuses a declared size over 1 MB before asking the database', async () => {
@@ -156,10 +175,13 @@ describe('logins, permissions and routes', () => {
     const offline = vi.fn(async () => {
       throw new TypeError('fetch failed');
     });
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const response = await handlePhotoRequest(request('GET', `/api/photos/${ID}`), envWith(bucket), offline);
 
     expect([response.status, await response.json()]).toEqual([502, { error: "Can't reach the database. Try again." }]);
+    expect(spy).toHaveBeenCalledWith('photo API: database call failed', expect.any(TypeError));
+    spy.mockRestore();
   });
 
   it('asks for a login before calling the database', async () => {
@@ -253,10 +275,13 @@ describe('DELETE /api/photos', () => {
     const { bucket } = memoryBucket([[KEY, JPEG]]);
     bucket.delete.mockRejectedValueOnce(new Error('R2 is down'));
     const db = fakeSupabase({ authorize_photo_purge: { body: null }, clear_photos: { body: 1 } });
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const response = await handlePhotoRequest(request('DELETE', '/api/photos'), envWith(bucket), db.fetchImpl);
 
     expect([response.status, await response.json()]).toEqual([502, { error: "Couldn't delete every photo. Try again." }]);
     expect(db.fns()).toEqual(['authorize_photo_purge']);
+    expect(spy).toHaveBeenCalledWith('photo API: deleting files failed', expect.any(Error));
+    spy.mockRestore();
   });
 });
