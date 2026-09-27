@@ -69,6 +69,7 @@ test('the discussion keeps unsent messages and its newest message in view', asyn
   await expect(box).toHaveValue('');
 
   // Back on the first candidate, both are still there, and Retry delivers the message.
+  await desk.getByRole('tablist', { name: 'Sections', exact: true }).getByRole('tab', { name: /^Recent/ }).click();
   await desk.getByRole('region', { name: 'Recent' }).getByRole('button', { name: `#${a.number} ${a.full_name}` }).click();
   await expect(desk.getByRole('log', { name: 'Messages' })).toContainText('Ask about Docker');
   await expect(box).toHaveValue('Half typed');

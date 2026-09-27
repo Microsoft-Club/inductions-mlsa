@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useAuth } from '../auth/AuthProvider.tsx';
 import { ActionButton, buttonClasses } from '../components/ActionButton.tsx';
 import { ActionProvider, useRunAction } from '../components/ActionProvider.tsx';
@@ -10,7 +11,8 @@ import { useLiveSnapshot } from '../lib/useLiveSnapshot.ts';
 import { EvaluatedCandidates } from './EvaluatedCandidates.tsx';
 import { FindCandidate } from './FindCandidate.tsx';
 import { InterviewWorkspace } from './InterviewWorkspace.tsx';
-import { evaluatedList, myPanel, recentList, shownInterview } from './panelView.ts';
+import { parseSection, SectionTabs, sectionPanelId, sectionTabId, YourNumbers, type Section } from './PanelistSections.tsx';
+import { evaluatedList, myPanel, panelistStats, recentList, shownInterview } from './panelView.ts';
 import { RecentInterviews } from './RecentInterviews.tsx';
 
 /** /panel: the panelist's screen (admins can open it too). */
@@ -74,6 +76,10 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
   const [criteria, setCriteria] = useState<Criterion[] | null>(null);
   const [formFailed, setFormFailed] = useState(false);
   const [pinnedId, setPinnedId] = useState<string | null>(null);
+  // The chosen section is in the address, so a reload keeps it; Interview has none.
+  const [params, setParams] = useSearchParams();
+  const section = parseSection(params.get('view'));
+  const choose = (next: Section) => setParams(next === 'interview' ? {} : { view: next });
   const boardVersion = board.server_time;
   const inductionId = board.induction.id;
 
@@ -110,12 +116,19 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
   }, [api, me.id, inductionId]);
 
   const shown = shownInterview(panel, recent, pinnedId, evaluations);
+  const openRecent = (interviewId: string) => {
+    setPinnedId(interviewId);
+    choose('interview');
+  };
   const openEvaluated = (interviewId: string) => {
     setPinnedId(interviewId);
     reloadEvaluations(); // an interview in another panel may have ended since the list loaded
+    choose('interview');
   };
   const evaluated = evaluations ? new Set(evaluations.map((e) => e.interview_id)) : null;
+  const stats = panelistStats(recent, evaluations);
   const next = panel.lane[0];
+  const sectionProps = (id: Section) => ({ role: 'tabpanel', id: sectionPanelId(id), 'aria-labelledby': sectionTabId(id), hidden: section !== id });
 
   return (
     <main className="space-y-4 p-4">
@@ -132,41 +145,74 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
           )}
         </p>
         {pinnedId && (
-          <button type="button" className={buttonClasses('secondary')} onClick={() => setPinnedId(null)}>
+          <button
+            type="button"
+            className={buttonClasses('secondary')}
+            onClick={() => {
+              setPinnedId(null);
+              choose('interview');
+            }}
+          >
             Back to the current interview
           </button>
         )}
-        <div className="ml-auto w-full sm:w-auto">
-          <FindCandidate board={board} />
-        </div>
       </div>
+
+      <YourNumbers stats={stats} />
 
       {board.induction.results_published && (
         <p className="rounded-md bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">Results are published; evaluations are locked.</p>
       )}
 
-      {shown ? (
-        <InterviewWorkspace
-          key={shown.id}
-          interview={shown}
-          userId={me.id}
-          criteria={criteria}
-          evaluations={evaluations}
-          formFailed={formFailed}
-          onRetryForm={() => void loadForm()}
-          locked={board.induction.results_published}
-          targetMinutes={board.induction.target_interview_minutes}
-          onEvaluationSubmitted={reloadEvaluations}
-        />
-      ) : (
-        <p className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-600">
-          Nobody has been interviewed in {panel.name} yet. The candidate appears here as soon as they are sent in.
-        </p>
-      )}
+      <SectionTabs current={section} pending={stats?.pending ?? 0} evaluated={stats?.evaluated} onChoose={choose} />
 
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        <RecentInterviews items={recentList(recent, shown?.id ?? null, evaluated)} onOpen={setPinnedId} />
-        {evaluations && <EvaluatedCandidates items={evaluatedList(evaluations)} onOpen={openEvaluated} />}
+      <div {...sectionProps('interview')}>
+        {shown ? (
+          <InterviewWorkspace
+            key={shown.id}
+            active={section === 'interview'}
+            interview={shown}
+            userId={me.id}
+            criteria={criteria}
+            evaluations={evaluations}
+            formFailed={formFailed}
+            onRetryForm={() => void loadForm()}
+            locked={board.induction.results_published}
+            targetMinutes={board.induction.target_interview_minutes}
+            onEvaluationSubmitted={reloadEvaluations}
+          />
+        ) : (
+          <p className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-600">
+            Nobody has been interviewed in {panel.name} yet. The candidate appears here as soon as they are sent in.
+          </p>
+        )}
+
+      </div>
+
+      <div {...sectionProps('recent')}>
+        <RecentInterviews items={recentList(recent, shown?.id ?? null, evaluated)} onOpen={openRecent} />
+      </div>
+
+      <div {...sectionProps('evaluated')}>
+        {evaluations ? (
+          <EvaluatedCandidates items={evaluatedList(evaluations)} onOpen={openEvaluated} />
+        ) : formFailed ? (
+          <div role="alert" className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+            <p>Couldn't load your evaluations. Check the connection.</p>
+            <button type="button" className={`${buttonClasses('secondary')} mt-2`} onClick={() => void loadForm()}>
+              Try again
+            </button>
+          </div>
+        ) : (
+          <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">Loading your evaluations…</p>
+        )}
+      </div>
+
+      <div {...sectionProps('find')}>
+        <div className="max-w-xl space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-sm text-slate-600">Search any candidate by number, name or reg number to read their application.</p>
+          <FindCandidate board={board} />
+        </div>
       </div>
     </main>
   );

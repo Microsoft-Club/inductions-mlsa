@@ -21,10 +21,12 @@ interface ChatPanelProps {
   meId: string;
   /** The phone's Chat tab is open. A hidden list can't scroll, so it scrolls to the newest message on opening. */
   tabOpen?: boolean;
+  /** The discussion's section is on screen; coming back to it scrolls to the newest message too. */
+  shown?: boolean;
 }
 
 /** The panel's discussion about this candidate. Your messages show at once and are matched to the saved copy. */
-export function ChatPanel({ interviewId, live, meId, tabOpen = false }: ChatPanelProps) {
+export function ChatPanel({ interviewId, live, meId, tabOpen = false, shown = true }: ChatPanelProps) {
   const api = useApi();
   const draftKey = chatDraftKey(meId, interviewId);
   // Text and messages not yet on the server come back when this interview is shown again. A message
@@ -46,7 +48,7 @@ export function ChatPanel({ interviewId, live, meId, tabOpen = false }: ChatPane
   useEffect(() => {
     const list = listRef.current;
     if (list) list.scrollTop = list.scrollHeight;
-  }, [saved.length, unsaved.length, tabOpen]);
+  }, [saved.length, unsaved.length, tabOpen, shown]);
 
   async function deliver(id: string, body: string) {
     setPending((list) => list.map((p) => (p.id === id ? { ...p, failed: false } : p)));

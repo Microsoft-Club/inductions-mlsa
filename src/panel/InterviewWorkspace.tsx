@@ -22,13 +22,15 @@ interface InterviewWorkspaceProps {
   /** Loading the criteria or the evaluations failed; the form waits for both. */
   formFailed: boolean;
   onRetryForm: () => void;
+  /** The Interview section is on screen (the panelist can switch to Recent, Evaluated or Find). */
+  active?: boolean;
   locked: boolean;
   targetMinutes: number;
   onEvaluationSubmitted: () => void;
 }
 
 /** Application · Discussion · My evaluation for one interview. Keyed by interview id by its parent. */
-export function InterviewWorkspace({ interview, userId, criteria, evaluations, formFailed, onRetryForm, locked, targetMinutes, onEvaluationSubmitted }: InterviewWorkspaceProps) {
+export function InterviewWorkspace({ interview, userId, criteria, evaluations, formFailed, onRetryForm, active = true, locked, targetMinutes, onEvaluationSubmitted }: InterviewWorkspaceProps) {
   const api = useApi();
   const live = useInterviewLive(interview.id);
   const [candidate, setCandidate] = useState<Candidate | null>(null);
@@ -96,7 +98,7 @@ export function InterviewWorkspace({ interview, userId, criteria, evaluations, f
           )}
         </div>
         <div className={show('chat')}>
-          <ChatPanel interviewId={interview.id} live={live} meId={userId} tabOpen={tab === 'chat'} />
+          <ChatPanel interviewId={interview.id} live={live} meId={userId} tabOpen={tab === 'chat'} shown={active} />
         </div>
         <div className={show('evaluate')}>
           {evaluations && criteria ? (

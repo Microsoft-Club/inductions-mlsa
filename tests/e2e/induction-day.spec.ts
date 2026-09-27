@@ -116,6 +116,7 @@ test('an induction day from import to the published list', async ({ browser }, t
   await evaluate(second, 'Yes', '4');
   await expect(second.getByText('2 panelists have submitted')).toBeVisible();
   // Each panelist's own list of the candidates they evaluated (only their own recommendation).
+  await first.getByRole('tablist', { name: 'Sections', exact: true }).getByRole('tab', { name: /^Evaluated/ }).click();
   const mine = first.getByRole('region', { name: 'Candidates you evaluated' }).getByRole('listitem').filter({ hasText: `#${number} ${candidateName}` });
   await expect(mine).toContainText(`${panelName} · Strong Yes`);
 

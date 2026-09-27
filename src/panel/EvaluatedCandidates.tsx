@@ -27,7 +27,8 @@ export function EvaluatedCandidates({ items, onOpen }: EvaluatedCandidatesProps)
               <button type="button" className="font-medium text-brand-700 hover:underline" onClick={() => onOpen(interview.id)}>
                 <span className="tabular-nums">#{interview.candidate.number}</span> <bdi>{interview.candidate.full_name}</bdi>
               </button>
-              <span className="text-sm text-slate-600">
+              {/* On a phone the details always take their own line, so rows line up whatever the name's length. */}
+              <span className="w-full text-sm text-slate-600 sm:w-auto">
                 <bdi>{interview.panel.name}</bdi> · {recommendationLabel(recommendation)} ·{' '}
                 <time dateTime={interview.started_at}>{clock(interview.started_at)}</time>
               </span>
