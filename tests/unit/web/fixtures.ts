@@ -24,6 +24,7 @@ export function lane(...people: Array<[number, string]>): LaneEntry[] {
     position: i + 1,
     skip_count: 0,
     checked_in_at: '2026-09-26T09:00:00Z',
+    has_photo: true,
   }));
 }
 
@@ -100,6 +101,7 @@ export function candidateRow(overrides: Partial<Candidate> = {}): Candidate {
     status: 'interviewing',
     checked_in_at: '2026-09-26T09:00:00Z',
     decision: 'undecided',
+    photo_taken_at: null,
     ...overrides,
   };
 }

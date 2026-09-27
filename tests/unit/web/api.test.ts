@@ -1,6 +1,15 @@
 import { createClient, FunctionsFetchError, FunctionsHttpError, type SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError, createApi, friendlyMessage, NETWORK_ERROR, NOT_ALLOWED, TIMEOUT_ERROR } from '../../../src/lib/api.ts';
+import {
+  ApiError,
+  createApi,
+  friendlyMessage,
+  NETWORK_ERROR,
+  NOT_ALLOWED,
+  TIMEOUT_ERROR,
+  type ApiOptions,
+  type PhotoFetch,
+} from '../../../src/lib/api.ts';
 import { notAllowed } from '../../../src/lib/notAllowed.ts';
 
 /** Stands in for a postgrest-js query: awaitable, with .abortSignal(). */
@@ -126,5 +135,81 @@ describe('manageAccount', () => {
   it('reports an unreachable function as a network problem', async () => {
     const { client } = functionsClient({ data: null, error: new FunctionsFetchError(new TypeError('Failed to fetch')) });
     await expect(createApi(client).manageAccount({ action: 'set_active', userId: 'u1', active: true })).rejects.toThrow(NETWORK_ERROR);
+  });
+});
+
+describe('photo calls', () => {
+  const session = { data: { session: { access_token: 'user-token' } } };
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+
+  function photoApi(photoFetch: PhotoFetch, options: ApiOptions = {}) {
+    const rpc = vi.fn(() => query(Promise.resolve({ data: 5, error: null, status: 200 })));
+    const client = { rpc, auth: { getSession: vi.fn(async () => session) } } as unknown as SupabaseClient;
+    return { rpc, api: createApi(client, { ...options, photoFetch }) };
+  }
+
+  it("uploads the JPEG with the signed-in user's token", async () => {
+    const photoFetch = vi.fn(async (_url: string, _init: RequestInit) => json({ photo_taken_at: '2026-09-27T10:00:00+00:00' }));
+    const { api } = photoApi(photoFetch);
+    const jpeg = new Blob(['jpeg'], { type: 'image/jpeg' });
+
+    await expect(api.uploadPhoto('c1', jpeg)).resolves.toBe('2026-09-27T10:00:00+00:00');
+    const [url, init] = photoFetch.mock.calls[0];
+    expect(url).toBe('/api/photos/c1');
+    expect(init).toMatchObject({ method: 'PUT', body: jpeg, headers: { 'Content-Type': 'image/jpeg', Authorization: 'Bearer user-token' } });
+  });
+
+  it('downloads a photo by version, and gives null when there is none', async () => {
+    const photoFetch = vi.fn(async (url: string, _init: RequestInit) =>
+      url.startsWith('/api/photos/c1') ? new Response(new Blob(['jpeg'])) : json({ error: 'No photo' }, 404),
+    );
+    const { api } = photoApi(photoFetch);
+
+    const blob = await api.photoBlob('c1', '2026-09-27T10:00:00+00:00');
+    expect(await blob?.text()).toBe('jpeg');
+    expect(photoFetch.mock.calls[0][0]).toBe('/api/photos/c1?v=2026-09-27T10%3A00%3A00%2B00%3A00');
+    await expect(api.photoBlob('c2', 'v1')).resolves.toBeNull();
+  });
+
+  it('deletes every photo and reports how many', async () => {
+    const photoFetch = vi.fn(async (_url: string, _init: RequestInit) => json({ deleted: 3 }));
+    const { api } = photoApi(photoFetch);
+
+    await expect(api.deleteAllPhotos()).resolves.toBe(3);
+    expect(photoFetch.mock.calls[0][0]).toBe('/api/photos');
+    expect(photoFetch.mock.calls[0][1].method).toBe('DELETE');
+  });
+
+  it("shows the server's message, and treats 401 and 403 as \"Not allowed\"", async () => {
+    const listener = vi.fn();
+    const stop = notAllowed.subscribe(listener);
+    const replies = [json({ error: 'Candidate #12 is not waiting' }, 400), json({ error: 'Sign in first.' }, 401), json({ error: 'Not allowed' }, 403)];
+    const { api } = photoApi(vi.fn(async () => replies.shift()!));
+    const jpeg = new Blob(['jpeg']);
+
+    await expect(api.uploadPhoto('c12', jpeg)).rejects.toEqual(new ApiError('Candidate #12 is not waiting'));
+    await expect(api.uploadPhoto('c12', jpeg)).rejects.toEqual(new ApiError(NOT_ALLOWED));
+    await expect(api.photoBlob('c12', 'v1')).rejects.toEqual(new ApiError(NOT_ALLOWED));
+    expect(listener).toHaveBeenCalledTimes(2);
+    stop();
+  });
+
+  it('reports a failed request as a network problem and a stalled one as a timeout', async () => {
+    const { api: offline } = photoApi(vi.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    }));
+    await expect(offline.uploadPhoto('c1', new Blob(['jpeg']))).rejects.toEqual(new ApiError(NETWORK_ERROR));
+
+    const stalled: PhotoFetch = (_url, init) =>
+      new Promise((_resolve, reject) => init.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError'))));
+    const { api: slow } = photoApi(stalled, { timeoutMs: 20 });
+    await expect(slow.uploadPhoto('c1', new Blob(['jpeg']))).rejects.toEqual(new ApiError(TIMEOUT_ERROR));
+  });
+
+  it('calls the photo queue and photo count functions', async () => {
+    const { rpc, api } = photoApi(vi.fn());
+    await api.photoQueue();
+    await api.photoCount();
+    expect(rpc.mock.calls).toEqual([['photo_queue', undefined], ['photo_count', undefined]]);
   });
 });

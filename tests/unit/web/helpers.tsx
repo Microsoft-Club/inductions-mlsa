@@ -80,6 +80,11 @@ export function fakeApi(overrides: Partial<Api> = {}): FakeApi {
     setDecision: vi.fn(async () => {}),
     setResultsPublished: vi.fn(async () => {}),
     publishedResults: vi.fn(async () => []),
+    photoQueue: vi.fn(async () => []),
+    uploadPhoto: vi.fn(async () => '2026-09-26T10:05:00Z'),
+    photoBlob: vi.fn(async () => new Blob(['jpeg'], { type: 'image/jpeg' })),
+    photoCount: vi.fn(async () => 0),
+    deleteAllPhotos: vi.fn(async () => 0),
     ...overrides,
   };
   return Object.assign(api, { topics });

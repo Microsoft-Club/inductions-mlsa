@@ -42,4 +42,9 @@ describe('validateCommand', () => {
   ])('rejects %j', (body, error) => {
     expect(validateCommand(body)).toEqual({ ok: false, error });
   });
+
+  it('accepts the photographer role', () => {
+    const parsed = validateCommand({ action: 'create', username: 'photos_one', displayName: 'Photos One', role: 'photographer', password: 'long-enough-1' });
+    expect(parsed.ok).toBe(true);
+  });
 });

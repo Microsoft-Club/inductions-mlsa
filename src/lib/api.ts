@@ -18,6 +18,7 @@ import type {
   InductionSettings,
   MyEvaluationWithInterview,
   PanelInterview,
+  PhotoQueueEntry,
   PublishedResult,
   Recommendation,
   ResultRow,
@@ -25,7 +26,7 @@ import type {
 } from './types.ts';
 
 const CANDIDATE_COLUMNS =
-  'id, number, reg_number, full_name, email, account_email, phone, department, batch, submitted_at, preferences, answers, status, checked_in_at, decision';
+  'id, number, reg_number, full_name, email, account_email, phone, department, batch, submitted_at, preferences, answers, status, checked_in_at, decision, photo_taken_at';
 
 export const NETWORK_ERROR = "Can't reach the server. Check the connection and try again.";
 export const TIMEOUT_ERROR = 'The server took too long to answer. Check the board before trying again.';
@@ -105,18 +106,37 @@ export interface Api {
 
   // Anyone
   publishedResults(): Promise<PublishedResult[]>;
+
+  // Photos (photographer, queue manager, admin; panelists view)
+  /** Everyone waiting, for the photographer's screen. */
+  photoQueue(): Promise<PhotoQueueEntry[]>;
+  /** Saves the photo (already shrunk to a JPEG); resolves to its photo_taken_at. */
+  uploadPhoto(candidateId: string, jpeg: Blob): Promise<string>;
+  /** The photo for this version (photo_taken_at); null when there is none. */
+  photoBlob(candidateId: string, version: string): Promise<Blob | null>;
+  /** Admins: how many candidates have a photo. */
+  photoCount(): Promise<number>;
+  /** Admins: deletes every photo file and record; resolves to how many records were cleared. */
+  deleteAllPhotos(): Promise<number>;
 }
+
+/** How photo requests reach /api/photos. The browser uses fetch; tests route them to the handler. */
+export type PhotoFetch = (url: string, init: RequestInit) => Promise<Response>;
 
 export interface ApiOptions {
   /** Give up on a call after this long, so one stalled request can't hold up every later reload. */
   timeoutMs?: number;
-  /** import_candidates handles hundreds of rows in one transaction; it gets longer. */
+  /** import_candidates handles hundreds of rows in one transaction; it gets longer. Deleting all photos too. */
   importTimeoutMs?: number;
+  photoFetch?: PhotoFetch;
 }
 
 type QueryResponse = { data: unknown; error: { message?: string; code?: string } | null; status: number };
 
-export function createApi(client: SupabaseClient, { timeoutMs = 15_000, importTimeoutMs = 60_000 }: ApiOptions = {}): Api {
+export function createApi(
+  client: SupabaseClient,
+  { timeoutMs = 15_000, importTimeoutMs = 60_000, photoFetch = (url, init) => fetch(url, init) }: ApiOptions = {},
+): Api {
   function fail(error: { message?: string; code?: string }, status?: number): ApiError {
     const message = friendlyMessage(error, status);
     if (message === NOT_ALLOWED) notAllowed.emit();
@@ -142,6 +162,31 @@ export function createApi(client: SupabaseClient, { timeoutMs = 15_000, importTi
 
   const rpc = <T,>(fn: string, args?: Record<string, unknown>, limitMs?: number) =>
     send<T>((signal) => client.rpc(fn, args).abortSignal(signal), limitMs);
+
+  /** One request to the photo API with the signed-in user's token and a deadline. */
+  async function photoRequest(path: string, init: RequestInit = {}, limitMs = timeoutMs): Promise<Response> {
+    const { data } = await client.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) throw fail({ message: NOT_ALLOWED, code: '42501' });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), limitMs);
+    let response: Response;
+    try {
+      response = await photoFetch(`/api/photos${path}`, {
+        ...init,
+        headers: { ...(init.headers as Record<string, string> | undefined), Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      });
+    } catch {
+      throw new ApiError(controller.signal.aborted ? TIMEOUT_ERROR : NETWORK_ERROR);
+    } finally {
+      clearTimeout(timer);
+    }
+    if (response.ok || (response.status === 404 && !init.method)) return response;
+    if (response.status === 401 || response.status === 403) throw fail({ message: NOT_ALLOWED, code: '42501' });
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new ApiError(body?.error?.trim() || 'Something went wrong');
+  }
 
   return {
     boardSnapshot: () => rpc<BoardSnapshot>('board_snapshot'),
@@ -275,5 +320,20 @@ export function createApi(client: SupabaseClient, { timeoutMs = 15_000, importTi
     setResultsPublished: (published) => rpc<void>('set_results_published', { p_published: published }),
 
     publishedResults: () => rpc<PublishedResult[]>('published_results'),
+
+    photoQueue: () => rpc<PhotoQueueEntry[]>('photo_queue'),
+    async uploadPhoto(candidateId, jpeg) {
+      const response = await photoRequest(`/${candidateId}`, { method: 'PUT', body: jpeg, headers: { 'Content-Type': 'image/jpeg' } });
+      return ((await response.json()) as { photo_taken_at: string }).photo_taken_at;
+    },
+    async photoBlob(candidateId, version) {
+      const response = await photoRequest(`/${candidateId}?v=${encodeURIComponent(version)}`);
+      return response.status === 404 ? null : await response.blob();
+    },
+    photoCount: () => rpc<number>('photo_count'),
+    async deleteAllPhotos() {
+      const response = await photoRequest('', { method: 'DELETE' }, importTimeoutMs);
+      return ((await response.json()) as { deleted: number }).deleted;
+    },
   };
 }

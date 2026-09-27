@@ -3,6 +3,7 @@ import type { Role } from '../lib/types.ts';
 export function homePath(role: Role): string {
   if (role === 'queue_manager') return '/queue';
   if (role === 'panelist') return '/panel';
+  if (role === 'photographer') return '/photos';
   return '/admin';
 }
 
@@ -16,4 +17,5 @@ export const ROLE_LABELS: Record<Role, string> = {
   admin: 'Admin',
   queue_manager: 'Queue manager',
   panelist: 'Panelist',
+  photographer: 'Photographer',
 };
