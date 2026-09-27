@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import { useAuth } from '../auth/AuthProvider.tsx';
 import { buttonClasses } from '../components/ActionButton.tsx';
 import { FullPageMessage } from '../components/FullPageMessage.tsx';
 import type { Role } from '../lib/types.ts';
+import { clearPhotoCache } from '../photos/usePhoto.ts';
 import { ROLE_LABELS } from './homePath.ts';
 
 const NAV: Array<{ to: string; label: string; roles: Role[] }> = [
@@ -19,6 +20,11 @@ export function StaffLayout() {
   const location = useLocation();
   // After "Sign out" the next person to sign in on this laptop should land on their own screen.
   const [signedOutHere, setSignedOutHere] = useState(false);
+
+  // Photos are cached in memory only; the next person to sign in on this browser starts without them.
+  useEffect(() => {
+    if (state.status === 'signed_out') clearPhotoCache();
+  }, [state.status]);
 
   if (state.status === 'loading') return <FullPageMessage title="Loading…" />;
   if (state.status === 'signed_out') {
