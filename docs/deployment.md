@@ -51,8 +51,9 @@ even though you are signed in as an admin, redeploy with
 `npx supabase functions deploy admin-users --no-verify-jwt`. That is safe: the function checks that
 the caller is an active admin itself before doing anything.
 
-Redeploy `admin-users` whenever a release adds a role (candidate photos added **Photographer**):
-until then the function refuses to create accounts with the new role.
+Redeploy `admin-users` whenever a release changes it. Until then, production runs the old version:
+candidate photos added the **Photographer** role, and account management added **Change role** and
+**Delete**.
 
 ## 4. Create the first admin
 

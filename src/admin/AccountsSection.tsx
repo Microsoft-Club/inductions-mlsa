@@ -12,7 +12,7 @@ import { generatePassword } from './password.ts';
 
 const inputClasses = 'mt-1 block h-9 w-full rounded-md border border-slate-300 px-2 text-sm font-normal focus:border-brand-600 focus:ring-2 focus:ring-brand-100 focus:outline-none';
 
-/** Everyone who can sign in: create, reset passwords, disable and enable (through the admin-users edge function). */
+/** Everyone who can sign in: create, reset passwords, change roles, disable, enable and delete (through the admin-users edge function). */
 export function AccountsSection({ me }: { me: Profile }) {
   const api = useApi();
   const [accounts, setAccounts] = useState<Account[] | null>(null);
@@ -68,15 +68,22 @@ function AccountRow({ account, isMe }: { account: Account; isMe: boolean }) {
   const api = useApi();
   const run = useRunAction();
   const toast = useToast();
-  const [resetting, setResetting] = useState(false);
+  const [editing, setEditing] = useState<'password' | 'role' | null>(null);
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState<Role>(account.role);
   const [problem, setProblem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const name = account.display_name;
 
-  async function saveReset(event: FormEvent) {
-    event.preventDefault();
-    const parsed = validateCommand({ action: 'reset_password', userId: account.id, password });
+  function close() {
+    setEditing(null);
+    setPassword('');
+    setProblem(null);
+  }
+
+  /** Checks a command the same way the edge function will, then sends it. */
+  async function send(body: unknown, success: string) {
+    const parsed = validateCommand(body);
     if (!parsed.ok) {
       setProblem(parsed.error);
       return;
@@ -88,11 +95,19 @@ function AccountRow({ account, isMe }: { account: Account; isMe: boolean }) {
     });
     setSaving(false);
     if (done) {
-      toast.show(`Password reset for ${name}`, 'success');
-      setResetting(false);
-      setPassword('');
-      setProblem(null);
+      toast.show(success, 'success');
+      close();
     }
+  }
+
+  function saveReset(event: FormEvent) {
+    event.preventDefault();
+    void send({ action: 'reset_password', userId: account.id, password }, `Password reset for ${name}`);
+  }
+
+  function saveRole(event: FormEvent) {
+    event.preventDefault();
+    void send({ action: 'set_role', userId: account.id, role }, `${name}'s role is now ${ROLE_LABELS[role]}`);
   }
 
   return (
@@ -102,8 +117,8 @@ function AccountRow({ account, isMe }: { account: Account; isMe: boolean }) {
       <td className="py-2 pr-3">{ROLE_LABELS[account.role]}</td>
       <td className="py-2 pr-3">{account.is_active ? 'Active' : 'Disabled'}</td>
       <td className="py-2">
-        {resetting ? (
-          <form noValidate className="flex flex-wrap items-center gap-2" onSubmit={(e) => void saveReset(e)}>
+        {editing === 'password' ? (
+          <form noValidate className="flex flex-wrap items-center gap-2" onSubmit={saveReset}>
             <input
               aria-label={`New password for ${name}`}
               value={password}
@@ -117,31 +132,79 @@ function AccountRow({ account, isMe }: { account: Account; isMe: boolean }) {
             <button type="submit" className={buttonClasses('primary')} disabled={saving}>
               Save
             </button>
-            <button type="button" className={buttonClasses('ghost')} onClick={() => setResetting(false)}>
+            <button type="button" className={buttonClasses('ghost')} onClick={close}>
+              Cancel
+            </button>
+            {problem && <span role="alert" className="text-xs text-red-700">{problem}</span>}
+          </form>
+        ) : editing === 'role' ? (
+          <form noValidate className="flex flex-wrap items-center gap-2" onSubmit={saveRole}>
+            <select
+              aria-label={`New role for ${name}`}
+              value={role}
+              onChange={(e) => setRole(e.target.value as Role)}
+              className="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm"
+              autoFocus
+            >
+              {ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABELS[r]}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className={buttonClasses('primary')} disabled={saving || role === account.role}>
+              Save
+            </button>
+            <button type="button" className={buttonClasses('ghost')} onClick={close}>
               Cancel
             </button>
             {problem && <span role="alert" className="text-xs text-red-700">{problem}</span>}
           </form>
         ) : (
           <div className="flex flex-wrap justify-end gap-1">
-            <button type="button" className={buttonClasses('secondary')} aria-label={`Reset password for ${name}`} onClick={() => setResetting(true)}>
+            <button type="button" className={buttonClasses('secondary')} aria-label={`Reset password for ${name}`} onClick={() => setEditing('password')}>
               Reset password
             </button>
-            {!isMe &&
-              (account.is_active ? (
+            {!isMe && (
+              <>
+                <button
+                  type="button"
+                  className={buttonClasses('secondary')}
+                  aria-label={`Change role for ${name}`}
+                  onClick={() => {
+                    setRole(account.role);
+                    setEditing('role');
+                  }}
+                >
+                  Change role
+                </button>
+                {account.is_active ? (
+                  <ActionButton
+                    variant="danger"
+                    label={`Disable ${name}`}
+                    confirm={`Disable ${name}? They are signed out and can't sign in until an admin enables the account again.`}
+                    action={() => api.manageAccount({ action: 'set_active', userId: account.id, active: false })}
+                  >
+                    Disable
+                  </ActionButton>
+                ) : (
+                  <ActionButton label={`Enable ${name}`} action={() => api.manageAccount({ action: 'set_active', userId: account.id, active: true })}>
+                    Enable
+                  </ActionButton>
+                )}
                 <ActionButton
                   variant="danger"
-                  label={`Disable ${name}`}
-                  confirm={`Disable ${name}? They are signed out and can't sign in until an admin enables the account again.`}
-                  action={() => api.manageAccount({ action: 'set_active', userId: account.id, active: false })}
+                  label={`Delete ${name}`}
+                  confirm={`Delete ${name} (${account.username})? This can't be undone.`}
+                  action={async () => {
+                    await api.manageAccount({ action: 'delete', userId: account.id });
+                    toast.show(`Deleted the account for ${name}`, 'success');
+                  }}
                 >
-                  Disable
+                  Delete
                 </ActionButton>
-              ) : (
-                <ActionButton label={`Enable ${name}`} action={() => api.manageAccount({ action: 'set_active', userId: account.id, active: true })}>
-                  Enable
-                </ActionButton>
-              ))}
+              </>
+            )}
           </div>
         )}
       </td>

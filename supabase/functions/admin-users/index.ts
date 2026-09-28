@@ -1,8 +1,8 @@
-// Admin-only account management: create accounts, reset passwords, disable/enable.
-// The service-role key never leaves this function.
+// Admin-only account management: create accounts, reset passwords, disable/enable, change roles
+// and delete accounts that have no history. The service-role key never leaves this function.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { createAccount } from '../_shared/accounts.ts';
-import { validateCommand } from './validate.ts';
+import { deleteRefusal, validateCommand } from './validate.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -65,6 +65,37 @@ Deno.serve(async (req) => {
       if (error) return json({ error: error.message }, 400);
       const { error: profileError } = await admin.from('profiles').update({ is_active: cmd.active }).eq('id', cmd.userId);
       if (profileError) return json({ error: profileError.message }, 400);
+      return json({ ok: true });
+    }
+    case 'set_role': {
+      // Admins can't change their own role, so there is always at least one admin.
+      if (cmd.userId === caller.user.id) return json({ error: 'You cannot change your own role' }, 400);
+      // A panelist who becomes something else should no longer show as present in a panel.
+      const { data, error } = await admin
+        .from('profiles')
+        .update({ role: cmd.role, current_panel_id: null })
+        .eq('id', cmd.userId)
+        .select('id');
+      if (error) return json({ error: error.message }, 400);
+      if (!data || data.length === 0) return json({ error: 'Account not found' }, 404);
+      return json({ ok: true });
+    }
+    case 'delete': {
+      if (cmd.userId === caller.user.id) return json({ error: 'You cannot delete your own account' }, 400);
+      const { data: target } = await admin.from('profiles').select('display_name').eq('id', cmd.userId).maybeSingle();
+      if (!target) return json({ error: 'Account not found' }, 404);
+      const [evaluations, messages] = await Promise.all([
+        admin.from('evaluations').select('id', { count: 'exact', head: true }).eq('panelist_id', cmd.userId),
+        admin.from('messages').select('id', { count: 'exact', head: true }).eq('author_id', cmd.userId),
+      ]);
+      const countError = evaluations.error ?? messages.error;
+      if (countError) return json({ error: countError.message }, 400);
+      const refusal = deleteRefusal(target.display_name, evaluations.count ?? 0, messages.count ?? 0);
+      if (refusal) return json({ error: refusal }, 400);
+      // Deleting the login deletes the profile with it; mentions elsewhere (who started an interview,
+      // who took a photo) become blank. The database still refuses if history appeared meanwhile.
+      const { error } = await admin.auth.admin.deleteUser(cmd.userId);
+      if (error) return json({ error: error.message }, 400);
       return json({ ok: true });
     }
   }
