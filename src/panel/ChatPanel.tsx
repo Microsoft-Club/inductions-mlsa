@@ -35,6 +35,7 @@ export function ChatPanel({ interviewId, live, meId, tabOpen = false, shown = tr
   const [draft, setDraft] = useState(restored.text);
   const [pending, setPending] = useState<Pending[]>(() => restored.unsent.map((u) => ({ ...u, failed: true })));
   const listRef = useRef<HTMLOListElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
   const saved = live.data?.messages ?? [];
   const savedIds = new Set(saved.map((m) => m.id));
   const unsaved = pending.filter((p) => !savedIds.has(p.id));
@@ -49,6 +50,12 @@ export function ChatPanel({ interviewId, live, meId, tabOpen = false, shown = tr
     const list = listRef.current;
     if (list) list.scrollTop = list.scrollHeight;
   }, [saved.length, unsaved.length, tabOpen, shown]);
+
+  // On a phone the discussion starts below the header, so opening the Chat tab also brings its end
+  // (the newest message and the message box) onto the screen.
+  useEffect(() => {
+    if (tabOpen && shown) sectionRef.current?.scrollIntoView?.({ block: 'end' });
+  }, [tabOpen, shown]);
 
   async function deliver(id: string, body: string) {
     setPending((list) => list.map((p) => (p.id === id ? { ...p, failed: false } : p)));
@@ -81,7 +88,7 @@ export function ChatPanel({ interviewId, live, meId, tabOpen = false, shown = tr
 
   const tooLong = draft.trim().length > MAX_LENGTH;
   return (
-    <section aria-label="Discussion" className="flex h-full min-h-[22rem] flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
+    <section ref={sectionRef} aria-label="Discussion" className="flex h-full min-h-[22rem] flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
       <header className="flex items-baseline justify-between border-b border-slate-100 px-4 py-3">
         <h2 className="font-semibold">Discussion</h2>
         {live.status === 'reconnecting' && <span className="text-xs font-medium text-amber-700">Reconnecting…</span>}

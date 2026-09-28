@@ -27,10 +27,12 @@ interface InterviewWorkspaceProps {
   locked: boolean;
   targetMinutes: number;
   onEvaluationSubmitted: () => void;
+  /** Changes whenever the board reloads (as it does after a reconnect); a failed application load is retried then. */
+  boardVersion?: string;
 }
 
 /** Application · Discussion · My evaluation for one interview. Keyed by interview id by its parent. */
-export function InterviewWorkspace({ interview, userId, criteria, evaluations, formFailed, onRetryForm, active = true, locked, targetMinutes, onEvaluationSubmitted }: InterviewWorkspaceProps) {
+export function InterviewWorkspace({ interview, userId, criteria, evaluations, formFailed, onRetryForm, active = true, locked, targetMinutes, onEvaluationSubmitted, boardVersion }: InterviewWorkspaceProps) {
   const api = useApi();
   const live = useInterviewLive(interview.id);
   const [candidate, setCandidate] = useState<Candidate | null>(null);
@@ -38,16 +40,24 @@ export function InterviewWorkspace({ interview, userId, criteria, evaluations, f
   const [attempt, setAttempt] = useState(0);
   const [tab, setTab] = useState<PhoneTab>('application');
 
+  // Until the application has loaded, try again on every board reload too, so a request lost in a
+  // network blip doesn't leave "Try again" on screen once the connection is back.
+  const loaded = candidate !== null;
   useEffect(() => {
+    if (loaded) return;
     let current = true;
     api.candidate(interview.candidateId).then(
-      (row) => current && setCandidate(row),
+      (row) => {
+        if (!current) return;
+        setCandidate(row);
+        setLoadError(null);
+      },
       (e) => current && setLoadError(errorMessage(e)),
     );
     return () => {
       current = false;
     };
-  }, [api, interview.candidateId, attempt]);
+  }, [api, interview.candidateId, attempt, boardVersion, loaded]);
 
   const saved = evaluations?.find((e) => e.interview_id === interview.id);
   const show = (which: PhoneTab) => (tab === which ? '' : 'hidden lg:block');

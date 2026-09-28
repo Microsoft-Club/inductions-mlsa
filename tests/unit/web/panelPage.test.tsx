@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, NETWORK_ERROR, type Api } from '../../../src/lib/api.ts';
@@ -292,6 +292,23 @@ describe('the panelist screen on a bad connection', () => {
     online = true;
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByRole('heading', { name: '#7 Sara Ahmed' })).toBeInTheDocument();
+  });
+
+  it('loads the application by itself when the board reloads after it failed', async () => {
+    const { net, overrides } = flaky();
+    const candidate = vi.fn(async (id: string) => (net.online ? candidateRow({ id }) : offline()));
+    const { api } = await openPanel({ ...overrides, candidate });
+    expect(await screen.findByText(NETWORK_ERROR)).toBeInTheDocument();
+
+    net.online = true;
+    (api as FakeApi).topics.board.event(); // the board reloads, as it does after reconnecting
+    expect(await screen.findByRole('heading', { name: '#7 Sara Ahmed' })).toBeInTheDocument();
+    expect(screen.queryByText(NETWORK_ERROR)).toBeNull();
+
+    const loads = candidate.mock.calls.length;
+    (api as FakeApi).topics.board.event();
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 100)));
+    expect(candidate).toHaveBeenCalledTimes(loads); // once it has loaded, board reloads don't fetch it again
   });
 });
 

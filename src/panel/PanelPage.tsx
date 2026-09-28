@@ -182,6 +182,7 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
             locked={board.induction.results_published}
             targetMinutes={board.induction.target_interview_minutes}
             onEvaluationSubmitted={reloadEvaluations}
+            boardVersion={boardVersion}
           />
         ) : (
           <p className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-600">
