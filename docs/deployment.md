@@ -89,6 +89,11 @@ your own row to choose a real password. Create every other account from that pag
 5. Deploy (or redeploy after adding the binding). Pages serves the app for every path because the build
    has no `404.html`, so links such as `/queue` or `/display?key=…` work when opened directly.
 
+From then on every push to `main` publishes the site; Cloudflare reports it as a "Cloudflare Pages"
+check on the commit. The "Deployments" list on the GitHub repository page comes from
+`.github/workflows/record-deployment.yml`, which only records what Cloudflare published. It deploys
+nothing, so if it fails the site is unaffected.
+
 ## 6. Check it
 
 On the Pages URL:

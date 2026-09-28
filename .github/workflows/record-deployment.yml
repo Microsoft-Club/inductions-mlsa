@@ -1,0 +1,62 @@
+# Purely cosmetic. Cloudflare Pages builds and publishes the site from main by itself and reports
+# back only as a "Cloudflare Pages" check on the commit. This waits for that check and records the
+# publish as a GitHub deployment too, so the repository page lists it under "Deployments".
+# It never builds or deploys anything, and needs no secrets.
+name: Record deployment
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # record the current main commit by hand
+
+permissions:
+  checks: read
+  deployments: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Wait for Cloudflare Pages, then record the deployment
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const sha = context.sha;
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+            // Cloudflare completes its check once the publish has finished (usually within a minute or two).
+            let run;
+            for (let attempt = 0; attempt < 90; attempt++) {
+              const { data } = await github.rest.checks.listForRef({ owner, repo, ref: sha, check_name: 'Cloudflare Pages' });
+              run = data.check_runs[0];
+              if (run?.status === 'completed') break;
+              await sleep(10_000);
+            }
+            if (run?.status !== 'completed') {
+              core.warning('No finished "Cloudflare Pages" check on this commit after 15 minutes, so nothing was recorded.');
+              return;
+            }
+
+            const { data: deployment } = await github.rest.repos.createDeployment({
+              owner,
+              repo,
+              ref: sha,
+              environment: 'Production',
+              production_environment: true,
+              auto_merge: false,
+              required_contexts: [],
+              description: 'Published by Cloudflare Pages',
+            });
+            const state = run.conclusion === 'success' ? 'success' : 'failure';
+            await github.rest.repos.createDeploymentStatus({
+              owner,
+              repo,
+              deployment_id: deployment.id,
+              state,
+              environment_url: 'https://mlsa-inductions.pages.dev',
+              log_url: run.details_url ?? run.html_url,
+              description: `Cloudflare Pages: ${run.conclusion}`,
+            });
+            core.info(`Recorded a ${state} Production deployment for ${sha.slice(0, 7)}.`);
