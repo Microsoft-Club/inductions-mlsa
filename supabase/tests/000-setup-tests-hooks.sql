@@ -82,6 +82,13 @@ language sql stable security definer set search_path = '' as $$
    where induction_id = public.active_induction_id() and name = p_name and deleted_at is null
 $$;
 
+-- Seats someone in a panel without logging in as them. Send in lines people up for a panel nobody
+-- is sitting in, so tests that send people in seat someone there first.
+create or replace function tests.seat(p_username text, p_panel text) returns void
+language sql security definer set search_path = '' as $$
+  update public.profiles set current_panel_id = tests.panel_id(p_panel) where username = p_username
+$$;
+
 create or replace function tests.status(p_number int) returns text
 language sql stable security definer set search_path = '' as $$
   select status::text from public.candidates where induction_id = public.active_induction_id() and number = p_number

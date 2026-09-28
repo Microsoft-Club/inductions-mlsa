@@ -183,6 +183,7 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
             targetMinutes={board.induction.target_interview_minutes}
             onEvaluationSubmitted={reloadEvaluations}
             boardVersion={boardVersion}
+            canEnd={me.role === 'admin' || shown.inThisPanel}
           />
         ) : (
           <p className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-600">

@@ -97,6 +97,10 @@ test('photos from check-in to the panel, and deleting them all', async ({ browse
   await expect(row(later).getByRole('button', { name: `Take a photo of #${later.number}` })).toBeVisible();
   await expect(row(ready).getByRole('button', { name: `Take a photo of #${ready.number}` })).toHaveCount(0);
 
+  // A panelist sits in the panel first: send in lines people up for a panel nobody is sitting in.
+  const panelist = await signIn(browser, 'panelist3', '/panel');
+  await joinPanel(panelist, panelName);
+
   // No photo yet: take it on the spot, and the send-in carries on.
   const panelCard = qm.getByRole('region', { name: panelName });
   await row(later).getByRole('button', { name: `Send in → ${panelName}` }).click();
@@ -113,8 +117,6 @@ test('photos from check-in to the panel, and deleting them all', async ({ browse
   await endCurrentInterview(qmApi);
 
   // With a photo: straight in, and the panelist sees the face on the card.
-  const panelist = await signIn(browser, 'panelist3', '/panel');
-  await joinPanel(panelist, panelName);
   await row(ready).getByRole('button', { name: `Send in → ${panelName}` }).click();
   await expect(panelCard).toContainText(ready.full_name);
   await expect(qm.getByRole('alertdialog', { name: 'No photo yet' })).toHaveCount(0);

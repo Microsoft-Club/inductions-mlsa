@@ -52,10 +52,11 @@ test('the discussion keeps unsent messages and its newest message in view', asyn
   const [a, b] = names.map((n) => people.find((c) => c.full_name === n)!);
   await qm.checkIn(a.id);
   await qm.checkIn(b.id);
-  const first = await qm.sendIn(a.id, panelId);
+  // The panelist sits in the panel first: send in lines people up for a panel nobody is sitting in.
+  const desk = await openPanel(browser, panelName, { width: 1440, height: 900 });
+  const first = (await qm.sendIn(a.id, panelId))!;
 
   // The Wi-Fi drops while sending; the panelist keeps typing; the next candidate is sent in.
-  const desk = await openPanel(browser, panelName, { width: 1440, height: 900 });
   await expect(desk.getByRole('heading', { name: `#${a.number} ${a.full_name}` })).toBeVisible();
   await desk.route('**/rest/v1/rpc/post_message', (route) => route.abort());
   const box = desk.getByRole('textbox', { name: 'Message' });
@@ -64,7 +65,7 @@ test('the discussion keeps unsent messages and its newest message in view', asyn
   await expect(desk.getByText('Not sent')).toBeVisible();
   await box.fill('Half typed');
   await qm.endInterview(first);
-  const second = await qm.sendIn(b.id, panelId);
+  const second = (await qm.sendIn(b.id, panelId))!;
   await expect(desk.getByRole('heading', { name: `#${b.number} ${b.full_name}` })).toBeVisible();
   await expect(box).toHaveValue('');
 

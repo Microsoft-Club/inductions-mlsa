@@ -48,6 +48,19 @@ describe('QueuePage', () => {
     expect(api.sendIn).toHaveBeenCalledWith('c20', 'p3');
   });
 
+  it('says the person was lined up instead when nobody is sitting in that panel', async () => {
+    const api = fakeApi({
+      boardSnapshot: vi.fn(async () =>
+        board({ panels: [boardPanel('p1', 'Panel 1', { is_default: true, current: interview(7, 'Sara Ahmed') }), boardPanel('p3', 'Panel 3')] }),
+      ),
+      sendIn: vi.fn(async () => null), // the server lined them up: nobody is sitting in Panel 3
+    });
+    await openQueue(api);
+    const [first] = within(screen.getByRole('list', { name: 'Waiting pool' })).getAllByRole('listitem');
+    await userEvent.click(within(first).getByRole('button', { name: 'Send in → Panel 3' }));
+    expect(await screen.findByText('Nobody is sitting in Panel 3 yet, so #20 is lined up for it. Send them in once a panelist has joined.')).toBeInTheDocument();
+  });
+
   it('lines people up, skips them and undoes their check-in from the pool', async () => {
     const { api } = await openQueue();
     vi.spyOn(window, 'confirm').mockReturnValue(true);

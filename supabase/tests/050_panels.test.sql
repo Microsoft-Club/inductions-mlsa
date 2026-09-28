@@ -5,6 +5,7 @@ select tests.reset_app();
 select tests.create_user('qm_one', 'queue_manager');
 select tests.create_user('pan_one', 'panelist');
 select tests.create_user('boss', 'admin');
+select tests.create_user('seat_three', 'panelist');
 select tests.add_candidate(n) from generate_series(1, 4) as n;
 
 select tests.login_as('pan_one');
@@ -23,6 +24,7 @@ select throws_ok($$ select public.delete_panel(tests.panel_id('Panel 1')) $$, 'P
 select public.check_in(tests.candidate_id(n)) from generate_series(1, 4) as n;
 select public.move_candidate(tests.candidate_id(2), tests.panel_id('Panel 3'), null);
 select public.move_candidate(tests.candidate_id(3), tests.panel_id('Panel 3'), null);
+select tests.seat('seat_three', 'Panel 3'); -- send in lines people up for an empty panel
 select public.send_in(tests.candidate_id(4), tests.panel_id('Panel 3'));
 select throws_ok($$ select public.delete_panel(tests.panel_id('Panel 3')) $$, 'P0001', 'Panel 3 has an interview in progress',
                  'busy panels cannot be deleted');

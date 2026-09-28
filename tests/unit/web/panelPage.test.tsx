@@ -164,6 +164,35 @@ describe('the candidates you evaluated', () => {
     expect(await screen.findByRole('heading', { name: '#7 Sara Ahmed' })).toBeInTheDocument();
   });
 
+  it("shows no End interview for an interview still running in another panel", async () => {
+    const zaraLive = past(3, 'Zara Ali', 'in_progress');
+    await openPanel({
+      candidate: vi.fn(async (id: string) => candidateRow({ id, number: Number(id.slice(1)), full_name: id === 'c3' ? 'Zara Ali' : 'Sara Ahmed' })),
+      myEvaluations: vi.fn(async () => [mine(zaraLive, 'Panel 2')]),
+    });
+    expect(await screen.findByRole('button', { name: 'End interview' })).toBeInTheDocument(); // your own panel's interview
+    await openSection(/^Evaluated/);
+    const list = await screen.findByRole('region', { name: 'Candidates you evaluated' });
+    await userEvent.click(within(list).getByRole('button', { name: '#3 Zara Ali' }));
+    expect(await screen.findByRole('heading', { name: '#3 Zara Ali' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'End interview' })).toBeNull();
+  });
+
+  it('still shows End interview to an admin looking at another panel', async () => {
+    const zaraLive = past(3, 'Zara Ali', 'in_progress');
+    const api = fakeApi({
+      boardSnapshot: vi.fn(async () => boardWithMe({ panelists: [{ id: 'u-admin', display_name: 'Test admin' }] })),
+      candidate: vi.fn(async (id: string) => candidateRow({ id, number: Number(id.slice(1)), full_name: id === 'c3' ? 'Zara Ali' : 'Sara Ahmed' })),
+      myEvaluations: vi.fn(async () => [mine(zaraLive, 'Panel 2')]),
+    });
+    renderApp('/panel', { api, auth: fakeAuth({ signedInAs: profile('admin') }).backend });
+    await openSection(/^Evaluated/);
+    const list = await screen.findByRole('region', { name: 'Candidates you evaluated' });
+    await userEvent.click(within(list).getByRole('button', { name: '#3 Zara Ali' }));
+    expect(await screen.findByRole('heading', { name: '#3 Zara Ali' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'End interview' })).toBeInTheDocument();
+  });
+
   it('refreshes the list when you open a candidate, so their interview shows as it is now', async () => {
     let endedSince = false; // Panel 2 finished with Zara after you left it
     await openPanel({

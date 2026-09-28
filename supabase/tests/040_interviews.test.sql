@@ -6,6 +6,11 @@ select tests.create_user('qm_one', 'queue_manager');
 select tests.create_user('pan_one', 'panelist');
 select tests.add_candidate(n) from generate_series(1, 5) as n;
 
+-- Someone sits in each panel people are sent into (send in lines people up for an empty panel).
+select tests.create_user('seat_one', 'panelist');
+select tests.create_user('seat_two', 'panelist');
+select tests.seat('seat_one', 'Panel 1');
+select tests.seat('seat_two', 'Panel 2');
 select tests.login_as('qm_one');
 select public.check_in(tests.candidate_id(n)) from generate_series(1, 4) as n;
 
@@ -34,7 +39,8 @@ select throws_ok($$ select public.undo_send_in(tests.interview_id(1)) $$, 'P0001
 -- end
 select public.send_in(tests.candidate_id(1), tests.panel_id('Panel 1'));
 select tests.login_as('pan_one');
-select lives_ok($$ select public.end_interview(tests.interview_id(1)) $$, 'panelists can end an interview');
+select public.set_my_panel(tests.panel_id('Panel 1'));
+select lives_ok($$ select public.end_interview(tests.interview_id(1)) $$, 'panelists sitting in the panel can end its interview');
 select is(tests.status(1), 'interviewed', '#1 is interviewed');
 select ok((select ended_at is not null from public.interviews where id = tests.interview_id(1)), 'end time recorded');
 select throws_ok($$ select public.end_interview(tests.interview_id(1)) $$, 'P0001', 'Interview is not in progress', 'cannot end twice');

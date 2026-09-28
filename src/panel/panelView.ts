@@ -13,14 +13,17 @@ export interface ShownInterview {
   status: InterviewStatus;
   startedAt: string;
   endedAt: string | null;
+  /** It belongs to the panel you're sitting in (only its panelists may end it). */
+  inThisPanel: boolean;
 }
 
-const fromPanelInterview = (i: PanelInterview): ShownInterview => ({
+const fromPanelInterview = (i: PanelInterview, inThisPanel: boolean): ShownInterview => ({
   id: i.id,
   candidateId: i.candidate.id,
   status: i.status,
   startedAt: i.started_at,
   endedAt: i.ended_at,
+  inThisPanel,
 });
 
 /**
@@ -34,8 +37,12 @@ export function shownInterview(
   evaluated: MyEvaluationWithInterview[] = [],
 ): ShownInterview | null {
   // Recent reloads with every board change, so it wins over the evaluations' copy of the same interview.
-  const pinned = pinnedId ? (recent.find((i) => i.id === pinnedId) ?? evaluated.find((e) => e.interview_id === pinnedId)?.interview) : undefined;
-  if (pinned) return fromPanelInterview(pinned);
+  if (pinnedId) {
+    const fromRecent = recent.find((i) => i.id === pinnedId);
+    if (fromRecent) return fromPanelInterview(fromRecent, true);
+    const fromEvaluated = evaluated.find((e) => e.interview_id === pinnedId)?.interview;
+    if (fromEvaluated) return fromPanelInterview(fromEvaluated, fromEvaluated.panel?.name === panel.name);
+  }
   if (panel.current) {
     return {
       id: panel.current.interview_id,
@@ -43,9 +50,10 @@ export function shownInterview(
       status: 'in_progress',
       startedAt: panel.current.started_at,
       endedAt: null,
+      inThisPanel: true,
     };
   }
-  return recent[0] ? fromPanelInterview(recent[0]) : null;
+  return recent[0] ? fromPanelInterview(recent[0], true) : null;
 }
 
 /**

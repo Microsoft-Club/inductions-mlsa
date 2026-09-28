@@ -107,6 +107,7 @@ describe('web API layer', () => {
     expect(sortedKeys(panel)).toEqual(['current', 'id', 'is_default', 'lane', 'last_ended', 'name', 'panelists']);
     expect(panel?.lane.map((e) => e.candidate_id)).toEqual([candidate.id]);
 
+    await panelist.setMyPanel(panelId); // send in lines people up for a panel nobody is sitting in
     interviewId = await qm.sendIn(candidate.id, panelId);
     board = await qm.boardSnapshot();
     const busy = board.panels.find((p) => p.id === panelId);

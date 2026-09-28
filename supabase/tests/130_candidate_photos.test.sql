@@ -13,6 +13,9 @@ select tests.add_candidate(2, 'Sara Ahmed');
 select tests.add_candidate(3, 'Bilal Raza');
 
 -- #1 waits in the pool, #2 is lined up for Panel 1 (still waiting), #3 has not checked in.
+-- Someone sits in each panel people are sent into (send in lines people up for an empty panel).
+select tests.create_user('seat_two', 'panelist');
+select tests.seat('seat_two', 'Panel 2');
 select tests.login_as('queue');
 select public.check_in(tests.candidate_id(1));
 select public.check_in(tests.candidate_id(2));
