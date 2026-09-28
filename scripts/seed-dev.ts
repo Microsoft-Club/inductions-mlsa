@@ -1,4 +1,4 @@
-// Local development data: six accounts and 60 fake candidates. Safe to re-run.
+// Local development data: seven accounts and 60 fake candidates. Safe to re-run.
 import { createClient } from '@supabase/supabase-js';
 import { createAccount, usernameToEmail, type Role } from '../supabase/functions/_shared/accounts.ts';
 import { localEnv } from './lib/local-env.ts';
@@ -7,6 +7,7 @@ const PASSWORD = 'induction-dev';
 const ACCOUNTS: Array<{ username: string; displayName: string; role: Role }> = [
   { username: 'admin', displayName: 'Admin', role: 'admin' },
   { username: 'queue', displayName: 'Queue Manager', role: 'queue_manager' },
+  { username: 'photos', displayName: 'Photographer', role: 'photographer' },
   { username: 'panelist1', displayName: 'Panelist One', role: 'panelist' },
   { username: 'panelist2', displayName: 'Panelist Two', role: 'panelist' },
   { username: 'panelist3', displayName: 'Panelist Three', role: 'panelist' },

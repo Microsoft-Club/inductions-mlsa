@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthProvider.tsx';
 import { buttonClasses } from '../components/ActionButton.tsx';
 import { AccountsSection } from './AccountsSection.tsx';
 import { PanelsSection } from './PanelsSection.tsx';
+import { PhotosSection } from './PhotosSection.tsx';
 import { ProjectorLinkSection, SettingsSection } from './SettingsSection.tsx';
 
 const LISTS: Array<[string, string]> = [
@@ -45,6 +46,7 @@ export function AdminPage() {
       <AccountsSection me={state.profile} />
       <PanelsSection />
       <SettingsSection />
+      <PhotosSection />
       <ProjectorLinkSection />
     </main>
   );
