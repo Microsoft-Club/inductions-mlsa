@@ -60,7 +60,10 @@ Each E2E run imports a few candidates ("Eesha Test …", "Chat Test …", "Photo
 There is no signup. Create the first admin with
 `npm run create-admin -- --username <u> --name "<Name>" --password <p>`
 (for production, set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` first). Admins create every
-other account from the app (`/admin` → Accounts).
+other account from the app (`/admin` → Accounts). They can also reset passwords, change roles,
+disable accounts, and delete accounts that have no evaluations or chat messages. An account with
+either is disabled instead, so its history stays attached to it. Nobody can change their own role
+or delete their own account.
 
 ## Data safety
 

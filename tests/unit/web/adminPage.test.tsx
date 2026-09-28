@@ -2,7 +2,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Api } from '../../../src/lib/api.ts';
+import { ApiError, type Api } from '../../../src/lib/api.ts';
 import { generatePassword } from '../../../src/admin/password.ts';
 import { profile } from './fixtures.ts';
 import { fakeApi, fakeAuth, renderApp } from './helpers.tsx';
@@ -49,6 +49,44 @@ describe('the admin page', () => {
     expect(within(mariam).getByRole('button', { name: 'Enable Mariam' })).toBeInTheDocument();
     const mine = await row('Test admin');
     expect(within(mine).queryByRole('button', { name: /^Disable/ })).toBeNull();
+    expect(within(mine).queryByRole('button', { name: /^Change role/ })).toBeNull();
+    expect(within(mine).queryByRole('button', { name: /^Delete/ })).toBeNull();
+  });
+
+  it("changes someone's role", async () => {
+    const { api } = await openAdmin();
+    const queue = await row('Queue Desk');
+    await userEvent.click(within(queue).getByRole('button', { name: 'Change role for Queue Desk' }));
+    const select = within(queue).getByRole('combobox', { name: 'New role for Queue Desk' });
+    expect(select).toHaveValue('queue_manager');
+    expect(within(queue).getByRole('button', { name: 'Save' })).toBeDisabled(); // nothing changed yet
+    await userEvent.selectOptions(select, 'photographer');
+    await userEvent.click(within(queue).getByRole('button', { name: 'Save' }));
+    expect(api.manageAccount).toHaveBeenCalledWith({ action: 'set_role', userId: ids.queue, role: 'photographer' });
+    expect(await screen.findByText("Queue Desk's role is now Photographer")).toBeInTheDocument();
+    await waitFor(() => expect(api.listAccounts).toHaveBeenCalledTimes(2));
+  });
+
+  it('deletes an account only after confirming', async () => {
+    const { api } = await openAdmin();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    const deleteQueue = within(await row('Queue Desk')).getByRole('button', { name: 'Delete Queue Desk' });
+    await userEvent.click(deleteQueue);
+    expect(confirm).toHaveBeenCalledWith("Delete Queue Desk (queue)? This can't be undone.");
+    expect(api.manageAccount).not.toHaveBeenCalled();
+
+    await userEvent.click(deleteQueue);
+    expect(api.manageAccount).toHaveBeenCalledWith({ action: 'delete', userId: ids.queue });
+    expect(await screen.findByText('Deleted the account for Queue Desk')).toBeInTheDocument();
+    await waitFor(() => expect(api.listAccounts).toHaveBeenCalledTimes(2));
+  });
+
+  it("shows the server's reason when an account can't be deleted", async () => {
+    const reason = "Mariam has 2 evaluations, so the account can't be deleted. Disable it instead.";
+    await openAdmin({ manageAccount: vi.fn(async () => Promise.reject(new ApiError(reason))) });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await userEvent.click(within(await row('Mariam')).getByRole('button', { name: 'Delete Mariam' }));
+    expect(await screen.findByText(reason)).toBeInTheDocument();
   });
 
   it('checks a new account before creating it', async () => {

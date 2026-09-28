@@ -10,6 +10,12 @@ async function callAdminUsers(token: string, body: unknown) {
   return { status: res.status, body: (await res.json()) as Record<string, unknown> };
 }
 
+/** The data of a service-role query, or the query's error thrown. */
+function must<T>(result: { data: T; error: { message: string } | null }): T {
+  if (result.error) throw new Error(result.error.message);
+  return result.data;
+}
+
 describe('admin-users edge function', () => {
   const created: string[] = [];
   let adminId: string;
@@ -94,6 +100,77 @@ describe('admin-users edge function', () => {
     const token = await accessToken(await signIn(username));
     const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
     expect(claims.exp - claims.iat).toBeLessThanOrEqual(600);
+  });
+
+  it('changes a role, and clears the panel they were sitting in', async () => {
+    const username = uniqueName('it_role');
+    const userId = await makeAccount(username, 'panelist');
+    created.push(userId);
+    const panel = must(await service.from('panels').select('id').is('deleted_at', null).limit(1).single());
+    must(await service.from('profiles').update({ current_panel_id: panel.id }).eq('id', userId).select('id'));
+
+    expect(await callAdminUsers(adminToken, { action: 'set_role', userId, role: 'photographer' })).toEqual({ status: 200, body: { ok: true } });
+    const profile = must(await service.from('profiles').select('role, current_panel_id').eq('id', userId).single());
+    expect(profile).toEqual({ role: 'photographer', current_panel_id: null });
+  });
+
+  it('will not let an admin change their own role or delete themselves', async () => {
+    expect(await callAdminUsers(adminToken, { action: 'set_role', userId: adminId, role: 'panelist' })).toEqual({
+      status: 400,
+      body: { error: 'You cannot change your own role' },
+    });
+    expect(await callAdminUsers(adminToken, { action: 'delete', userId: adminId })).toEqual({
+      status: 400,
+      body: { error: 'You cannot delete your own account' },
+    });
+  });
+
+  it('deletes an account with no history, so the username can be used again', async () => {
+    const username = uniqueName('it_del');
+    const userId = await makeAccount(username, 'queue_manager');
+
+    expect(await callAdminUsers(adminToken, { action: 'delete', userId })).toEqual({ status: 200, body: { ok: true } });
+    expect(must(await service.from('profiles').select('id').eq('id', userId).maybeSingle())).toBeNull();
+    await expect(signIn(username)).rejects.toThrow();
+
+    const again = await callAdminUsers(adminToken, { action: 'create', username, displayName: 'Again', role: 'panelist', password: 'panel-pass-1' });
+    expect(again.status).toBe(200);
+    created.push(again.body.user_id as string);
+  });
+
+  it('refuses to delete an account that has evaluated someone', async () => {
+    const username = uniqueName('it_hist');
+    const userId = await makeAccount(username, 'panelist');
+    created.push(userId);
+    // A throwaway candidate with an ended interview, and this panelist's evaluation of it.
+    const induction = must(await service.from('inductions').select('id').eq('is_active', true).single());
+    const panel = must(await service.from('panels').select('id').eq('induction_id', induction.id).is('deleted_at', null).limit(1).single());
+    const top = must(await service.from('candidates').select('number').eq('induction_id', induction.id).order('number', { ascending: false }).limit(1).maybeSingle());
+    const candidate = must(
+      await service
+        .from('candidates')
+        .insert({ induction_id: induction.id, number: (top?.number ?? 0) + 1, reg_number: `HIST${Date.now()}`, full_name: 'History Tester', submitted_at: new Date().toISOString(), status: 'interviewed' })
+        .select('id')
+        .single(),
+    );
+    try {
+      const interview = must(
+        await service
+          .from('interviews')
+          .insert({ induction_id: induction.id, candidate_id: candidate.id, panel_id: panel.id, status: 'ended', ended_at: new Date().toISOString() })
+          .select('id')
+          .single(),
+      );
+      must(await service.from('evaluations').insert({ interview_id: interview.id, panelist_id: userId, recommendation: 'yes' }).select('id'));
+
+      expect(await callAdminUsers(adminToken, { action: 'delete', userId })).toEqual({
+        status: 400,
+        body: { error: `${username} has 1 evaluation, so the account can't be deleted. Disable it instead.` },
+      });
+      expect(must(await service.from('profiles').select('id').eq('id', userId).maybeSingle())).not.toBeNull();
+    } finally {
+      must(await service.from('candidates').delete().eq('id', candidate.id).select('id')); // the interview and evaluation go with it
+    }
   });
 
   it('resets a password', async () => {
