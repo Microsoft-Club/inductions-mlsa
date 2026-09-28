@@ -91,8 +91,10 @@ test('an induction day from import to the published list', async ({ browser }, t
   await joinPanel(first, panelName);
   await joinPanel(second, panelName);
 
-  // Send in: the projector shows it within seconds, and both panelists see the application.
+  // Send in: this candidate has no photo, so it asks first; send anyway (photos have their own spec).
   await qm.getByRole('region', { name: panelName }).getByRole('button', { name: `Send #${number} in to ${panelName}` }).click();
+  await qm.getByRole('alertdialog', { name: 'No photo yet' }).getByRole('button', { name: 'Send without photo' }).click();
+  // The projector shows it within seconds, and both panelists see the application.
   await expect(tile.getByText('Now interviewing')).toBeVisible();
   await expect(tile.getByText(candidateName)).toBeVisible();
   for (const page of [first, second]) {
