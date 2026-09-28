@@ -87,6 +87,7 @@ describe('candidate photos', () => {
 
   it('stops the photographer once the candidate has gone in', async () => {
     panelId = await qm.addPanel();
+    await panelist.setMyPanel(panelId); // send in lines people up for a panel nobody is sitting in
     interviewId = await qm.sendIn(candidateId, panelId);
 
     await expect(photographer.uploadPhoto(candidateId, JPEG())).rejects.toEqual(new ApiError(`Candidate #${number} is not waiting`));

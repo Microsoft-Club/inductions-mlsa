@@ -62,6 +62,7 @@ describe('panelist, admin and results API', () => {
     }]);
     candidateId = (await qm.listCandidates(inductionId)).find((c) => c.reg_number === reg)!.id;
     await qm.checkIn(candidateId);
+    await panelistB.setMyPanel(panelId); // send in lines people up for a panel nobody is sitting in
     interviewId = await qm.sendIn(candidateId, panelId);
   });
 

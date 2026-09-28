@@ -60,8 +60,8 @@ export interface Api {
   /** panelId null = the waiting pool; position null = end of the lane. */
   moveCandidate(candidateId: string, panelId: string | null, position: number | null): Promise<void>;
   skipCandidate(candidateId: string): Promise<void>;
-  /** Returns the new interview's id. */
-  sendIn(candidateId: string, panelId: string): Promise<string>;
+  /** Returns the new interview's id, or null when nobody is sitting in that panel and the person was lined up for it instead. */
+  sendIn(candidateId: string, panelId: string): Promise<string | null>;
   undoSendIn(interviewId: string): Promise<void>;
   endInterview(interviewId: string): Promise<void>;
   reopenInterview(interviewId: string): Promise<void>;
@@ -208,7 +208,7 @@ export function createApi(
     moveCandidate: (candidateId, panelId, position) =>
       rpc<void>('move_candidate', { p_candidate_id: candidateId, p_panel_id: panelId, p_position: position }),
     skipCandidate: (candidateId) => rpc<void>('skip_candidate', { p_candidate_id: candidateId }),
-    sendIn: (candidateId, panelId) => rpc<string>('send_in', { p_candidate_id: candidateId, p_panel_id: panelId }),
+    sendIn: (candidateId, panelId) => rpc<string | null>('send_in', { p_candidate_id: candidateId, p_panel_id: panelId }),
     undoSendIn: (interviewId) => rpc<void>('undo_send_in', { p_interview_id: interviewId }),
     endInterview: (interviewId) => rpc<void>('end_interview', { p_interview_id: interviewId }),
     reopenInterview: (interviewId) => rpc<void>('reopen_interview', { p_interview_id: interviewId }),

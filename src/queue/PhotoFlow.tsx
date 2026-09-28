@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { buttonClasses } from '../components/ActionButton.tsx';
 import { useRunAction } from '../components/ActionProvider.tsx';
+import { useToast } from '../components/Toasts.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
 import type { LaneEntry } from '../lib/types.ts';
 import { CaptureView } from '../photos/CaptureView.tsx';
@@ -35,19 +36,32 @@ export function PhotoFlowProvider({ children }: { children: ReactNode }) {
   const run = useRunAction();
   const [asking, setAsking] = useState<SendTarget | null>(null);
   const [capturing, setCapturing] = useState<{ entry: LaneEntry; thenSend: SendTarget | null } | null>(null);
+  const toast = useToast();
+
+  // With nobody sitting in the panel, the server lines the person up for it instead of starting an interview.
+  const sendNow = useCallback(
+    async ({ entry, panel }: SendTarget) => {
+      const interviewId = await api.sendIn(entry.candidate_id, panel.id);
+      if (interviewId === null) {
+        toast.show(`Nobody is sitting in ${panel.name} yet, so #${entry.number} is lined up for it. Send them in once a panelist has joined.`, 'info');
+      }
+      return interviewId;
+    },
+    [api, toast],
+  );
 
   const flow = useMemo<PhotoFlow>(
     () => ({
       async sendIn(entry, panel) {
-        if (entry.has_photo) return api.sendIn(entry.candidate_id, panel.id);
+        if (entry.has_photo) return sendNow({ entry, panel });
         setAsking({ entry, panel });
       },
       takePhoto: (entry) => setCapturing({ entry, thenSend: null }),
     }),
-    [api],
+    [sendNow],
   );
 
-  const send = (target: SendTarget) => void run(() => api.sendIn(target.entry.candidate_id, target.panel.id));
+  const send = (target: SendTarget) => void run(() => sendNow(target));
 
   return (
     <PhotoFlowContext.Provider value={flow}>

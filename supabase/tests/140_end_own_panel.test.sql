@@ -11,13 +11,14 @@ select tests.create_user('pan_other', 'panelist');
 select tests.create_user('pan_none', 'panelist');
 select tests.add_candidate(n) from generate_series(1, 4) as n;
 
-select tests.login_as('qm_one');
-select public.check_in(tests.candidate_id(n)) from generate_series(1, 4) as n;
-select public.send_in(tests.candidate_id(1), tests.panel_id('Panel 1'));
 select tests.login_as('pan_in');
 select public.set_my_panel(tests.panel_id('Panel 1'));
 select tests.login_as('pan_other');
 select public.set_my_panel(tests.panel_id('Panel 2'));
+select tests.login_as('qm_one');
+select public.check_in(tests.candidate_id(n)) from generate_series(1, 4) as n;
+select public.send_in(tests.candidate_id(1), tests.panel_id('Panel 1'));
+select tests.login_as('pan_other');
 
 select throws_ok($$ select public.end_interview(tests.interview_id(1)) $$, 'P0001',
   'Only panelists sitting in Panel 1 can end this interview', 'a panelist sitting in another panel cannot end it');

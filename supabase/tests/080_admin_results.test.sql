@@ -9,6 +9,11 @@ select tests.create_user('boss', 'admin');
 select tests.add_candidate(n) from generate_series(1, 3) as n;
 
 -- #1: two evaluations. #2: a cancelled interview, then one evaluation with only N/A scores. #3: never interviewed.
+-- Someone sits in each panel people are sent into (send in lines people up for an empty panel).
+select tests.create_user('seat_one', 'panelist');
+select tests.create_user('seat_two', 'panelist');
+select tests.seat('seat_one', 'Panel 1');
+select tests.seat('seat_two', 'Panel 2');
 select tests.login_as('qm_one');
 select public.check_in(tests.candidate_id(n)) from generate_series(1, 2) as n;
 select public.send_in(tests.candidate_id(2), tests.panel_id('Panel 2'));

@@ -9,6 +9,9 @@ select tests.create_user('boss', 'admin');
 select tests.add_candidate(1);
 select tests.add_candidate(2);
 
+-- Someone sits in each panel people are sent into (send in lines people up for an empty panel).
+select tests.create_user('seat_one', 'panelist');
+select tests.seat('seat_one', 'Panel 1');
 select tests.login_as('qm_one');
 select public.check_in(tests.candidate_id(1));
 select public.send_in(tests.candidate_id(1), tests.panel_id('Panel 1'));

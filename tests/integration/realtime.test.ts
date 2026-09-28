@@ -67,6 +67,7 @@ describe('realtime delivery', () => {
     const panel = await qm.rpc('add_panel');
     if (panel.error) throw panel.error;
     panelId = panel.data;
+    expect((await panelistA.rpc('set_my_panel', { p_panel_id: panelId })).error).toBeNull(); // send in lines people up for a panel nobody is sitting in
 
     const reg = uniqueName('RT').toUpperCase();
     const imported = await qm.rpc('import_candidates', {

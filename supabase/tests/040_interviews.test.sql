@@ -6,6 +6,11 @@ select tests.create_user('qm_one', 'queue_manager');
 select tests.create_user('pan_one', 'panelist');
 select tests.add_candidate(n) from generate_series(1, 5) as n;
 
+-- Someone sits in each panel people are sent into (send in lines people up for an empty panel).
+select tests.create_user('seat_one', 'panelist');
+select tests.create_user('seat_two', 'panelist');
+select tests.seat('seat_one', 'Panel 1');
+select tests.seat('seat_two', 'Panel 2');
 select tests.login_as('qm_one');
 select public.check_in(tests.candidate_id(n)) from generate_series(1, 4) as n;
 
