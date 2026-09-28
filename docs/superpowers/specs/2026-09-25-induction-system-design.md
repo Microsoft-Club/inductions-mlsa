@@ -58,7 +58,7 @@ The queue manager, the panelists, the projector and the admins all see the same 
 | Who | Logs in? | Can see and do |
 |---|---|---|
 | **Candidates** | No | Nothing in the app. They see only the projector and, once published, the public selected list. |
-| **Panelist** | Yes | Read candidates (including answers and contact details), interviews and chats of **any** panel. Post chat messages. Write and read **only their own** evaluations. End interviews. Choose their current panel. |
+| **Panelist** | Yes | Read candidates (including answers and contact details), interviews and chats of **any** panel. Post chat messages. Write and read **only their own** evaluations. End interviews of the panel they are sitting in. Choose their current panel. |
 | **Queue manager (QM)** | Yes | Import the CSV. Check in candidates. All queue actions. Send in. End, undo and reopen interviews. Add panels. Delete **non-default** panels. **No** access to chats or evaluations. |
 | **Admin** | Yes | Everything above, plus accounts, deleting any panel, settings, results, decisions and publishing. |
 | **Projector** | No (secret link) | Only the number, name, panel, interview start time, and the waiting list (numbers and names). |
@@ -168,7 +168,7 @@ Direct writes to status, queue and interview columns are blocked by RLS.
 | `skip_candidate(candidate_id)` | QM, admin | Moves the candidate to the end of their current lane and adds 1 to `skip_count`. They stay `waiting`. |
 | `send_in(candidate_id, panel_id)` | QM, admin | Candidate must be `waiting`, and the panel must exist and have no `in_progress` interview. Creates an interview with `started_at = now()`, removes the queue entry, and sets the candidate to `interviewing`. |
 | `undo_send_in(interview_id)` | QM, admin | Interview must be `in_progress`. Sets the interview to `cancelled` and the candidate back to `waiting`, at the **top** of that panel's lane. |
-| `end_interview(interview_id)` | Panelist, QM, admin | `in_progress` → `ended`, `ended_at = now()`, candidate → `interviewed`. The panel is free immediately. |
+| `end_interview(interview_id)` | Panelist (only while sitting in that interview's panel), QM, admin | `in_progress` → `ended`, `ended_at = now()`, candidate → `interviewed`. The panel is free immediately. |
 | `reopen_interview(interview_id)` | QM, admin | Only for the panel's most recently ended interview, and only while the panel has no `in_progress` interview. Sets it back to `in_progress` (clears `ended_at`) and the candidate back to `interviewing`. The timer continues from the original `started_at`. |
 | `add_panel()` | QM, admin | Creates "Panel N", where N is the next number. |
 | `delete_panel(panel_id)` | Admin: any panel. QM: non-default panels only. | Refused if the panel has an `in_progress` interview. Moves its lane to the end of the pool, then soft-deletes it. Past interviews keep their panel. |
@@ -262,7 +262,7 @@ Supabase Realtime **Broadcast**. Messages are sent from Postgres with `realtime.
 
 **`/panel`**: panelist
 - **Choosing a panel:** pick one on first visit; switch any time from the header.
-- **Candidate card:** number, name, reg number, department, batch, preferences 1–4, live timer, **End interview**.
+- **Candidate card:** number, name, reg number, department, batch, preferences 1–4, live timer, **End interview** (only for the panel you are sitting in; admins see it everywhere).
 - **Application tabs:** General · Dev · LogiKal · L&D · Marketing · Contact. Empty answers and empty tabs are hidden.
 - **Discussion:** the chat for the current interview.
 - **My evaluation:** the form, with a draft auto-saved to `localStorage` per interview. It shows how many panelists have submitted.

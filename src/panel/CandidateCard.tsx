@@ -18,9 +18,11 @@ interface CandidateCardProps {
   /** The interview on show, if any: adds the timer and End interview. */
   interview?: CardInterview;
   targetMinutes: number;
+  /** Offer End interview (only the panelists in the interview's own panel may end it). */
+  canEnd?: boolean;
 }
 
-export function CandidateCard({ candidate, interview, targetMinutes }: CandidateCardProps) {
+export function CandidateCard({ candidate, interview, targetMinutes, canEnd = true }: CandidateCardProps) {
   const api = useApi();
   const preferences = rankedPreferences(candidate.preferences);
   const details = [candidate.reg_number, candidate.department, candidate.batch].filter((d) => d.trim() !== '').join(' · ');
@@ -40,14 +42,16 @@ export function CandidateCard({ candidate, interview, targetMinutes }: Candidate
         {interview?.status === 'in_progress' && (
           <div className="flex items-center gap-3">
             <Timer startedAt={interview.started_at} targetMinutes={targetMinutes} className="text-2xl font-semibold" />
-            <ActionButton
-              variant="primary"
-              size="md"
-              confirm={`End the interview with #${candidate.number} ${candidate.full_name}?`}
-              action={() => api.endInterview(interview.id)}
-            >
-              End interview
-            </ActionButton>
+            {canEnd && (
+              <ActionButton
+                variant="primary"
+                size="md"
+                confirm={`End the interview with #${candidate.number} ${candidate.full_name}?`}
+                action={() => api.endInterview(interview.id)}
+              >
+                End interview
+              </ActionButton>
+            )}
           </div>
         )}
         {interview?.status === 'ended' && interview.ended_at && (
