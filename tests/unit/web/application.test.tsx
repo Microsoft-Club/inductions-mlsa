@@ -60,6 +60,27 @@ describe('the application', () => {
     expect(contact).toHaveTextContent('03001234507');
   });
 
+  it('puts each question and its answer in a numbered box of their own', () => {
+    renderApplication(candidateRow({
+      answers: { general: [{ q: 'Why MLSA?', a: 'To learn.' }, { q: 'How many hours a week?', a: '6' }] },
+    }));
+    const questions = screen.getAllByRole('term');
+    const answers = screen.getAllByRole('definition');
+    expect(questions.map((q) => q.textContent)).toEqual(['Q1Why MLSA?', 'Q2How many hours a week?']);
+    expect(answers.map((a) => a.textContent)).toEqual(['To learn.', '6']);
+    // A question and its answer share a box, and each pair has its own.
+    expect(questions[0].parentElement).toBe(answers[0].parentElement);
+    expect(questions[1].parentElement).toBe(answers[1].parentElement);
+    expect(questions[0].parentElement).not.toBe(questions[1].parentElement);
+  });
+
+  it('lists contact details as plain label and value, without question numbers', async () => {
+    renderApplication();
+    await userEvent.click(screen.getByRole('tab', { name: 'Contact' }));
+    const labels = within(screen.getByRole('tabpanel')).getAllByRole('term').map((t) => t.textContent);
+    expect(labels).toEqual(['Email', 'Google account', 'Phone (WhatsApp)', 'Registration number', 'Department', 'Batch']);
+  });
+
   it('keeps line breaks and lets Urdu answers run right to left', () => {
     renderApplication(candidateRow({ answers: { general: [{ q: 'Why?', a: 'پہلی لائن\nدوسری لائن' }] } }));
     const answer = screen.getByText((_, el) => el?.tagName === 'DD' && el.textContent === 'پہلی لائن\nدوسری لائن');
