@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { usePhoto } from './usePhoto.ts';
 
 const SIZES = {
@@ -28,8 +29,14 @@ interface CandidatePhotoProps {
 /** A candidate's photo, or their initials on grey (never a broken image). */
 export function CandidatePhoto({ candidateId, version, name, size = 'md' }: CandidatePhotoProps) {
   const url = usePhoto(candidateId, version);
+  const [broken, setBroken] = useState(false);
+  // A stored file that passed the magic-byte check but can't be decoded (e.g. it's truncated): reset
+  // once we might be looking at a different photo, so a good photo at a new version gets a fresh try.
+  useEffect(() => setBroken(false), [candidateId, version]);
   const box = `${SIZES[size]} shrink-0 rounded-lg`;
-  if (url) return <img src={url} alt={`Photo of ${name}`} className={`${box} bg-slate-100 object-cover`} />;
+  if (url && !broken) {
+    return <img src={url} alt={`Photo of ${name}`} className={`${box} bg-slate-100 object-cover`} onError={() => setBroken(true)} />;
+  }
   const label = url === undefined ? `Loading photo of ${name}` : `No photo of ${name}`;
   return (
     <div role="img" aria-label={label} className={`${box} flex items-center justify-center bg-slate-200 font-semibold text-slate-500`}>

@@ -56,6 +56,9 @@ describe('CaptureView', () => {
     expect(api.uploadPhoto).toHaveBeenCalledWith('c12', expect.any(Blob));
     expect(await (vi.mocked(api.uploadPhoto).mock.calls[0][1] as Blob).text()).toBe('small jpeg');
     expect(onSaved).toHaveBeenCalledWith('2026-09-26T10:05:00Z');
+    // Remembered in the photo cache under its own object URL (blob:1 is the preview, which this doesn't reuse),
+    // so a CandidatePhoto for the same candidate and version shows it without downloading it again.
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(2);
   });
 
   it('on a phone, one big button opens the back camera', async () => {

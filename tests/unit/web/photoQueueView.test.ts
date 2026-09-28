@@ -31,3 +31,26 @@ describe('photoCounts', () => {
     expect(photoCounts([])).toEqual({ needs: 0, done: 0 });
   });
 });
+
+describe('matchesPhotoSearch with a multi-word name', () => {
+  const entry = photoEntry(30, 'Muhammad Ali Khan');
+
+  it('matches when every query word is a prefix of some name word, whatever the order', () => {
+    expect(matchesPhotoSearch(entry, 'muhammad ali')).toBe(true);
+    expect(matchesPhotoSearch(entry, 'ali k')).toBe(true);
+    expect(matchesPhotoSearch(entry, 'muhammad ali khan')).toBe(true);
+    expect(matchesPhotoSearch(entry, 'ali muhammad')).toBe(true);
+  });
+
+  it('does not match a query word with no matching prefix in the name', () => {
+    expect(matchesPhotoSearch(entry, 'alik')).toBe(false);
+  });
+
+  it('does not match a name that merely shares a substring', () => {
+    expect(matchesPhotoSearch(photoEntry(31, 'Hina Malik'), 'ali')).toBe(false);
+  });
+
+  it('ignores leading, trailing and doubled spaces', () => {
+    expect(matchesPhotoSearch(entry, '  muhammad   ali  ')).toBe(true);
+  });
+});

@@ -30,6 +30,17 @@ function photoUrl(api: Api, candidateId: string, version: string): Promise<strin
   return url;
 }
 
+/**
+ * Seeds the cache with a photo just uploaded, so the Done thumbnail and the candidate card don't
+ * download it again over patchy mobile data. Makes its own object URL (never the caller's preview
+ * URL, which the caller owns and revokes itself). Does nothing if this version is already cached.
+ */
+export function rememberPhoto(candidateId: string, version: string, blob: Blob): void {
+  const key = cacheKey(candidateId, version);
+  if (cache.has(key)) return;
+  cache.set(key, Promise.resolve(URL.createObjectURL(blob)));
+}
+
 /** Forgets every photo and frees its memory: revokes every object URL this browser has fetched. */
 export function clearPhotoCache(): void {
   for (const url of cache.values()) {

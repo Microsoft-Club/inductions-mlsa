@@ -38,7 +38,7 @@ export function validateCommand(body: unknown): Validation {
         return { ok: false, error: 'Name must be 1 to 80 characters' };
       }
       if (!ROLES.includes(b.role as Role)) {
-        return { ok: false, error: 'Role must be admin, queue_manager or panelist' };
+        return { ok: false, error: 'Role must be admin, queue_manager, panelist or photographer' };
       }
       const pwError = passwordError(b.password);
       if (pwError) return { ok: false, error: pwError };

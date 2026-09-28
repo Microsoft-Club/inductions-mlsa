@@ -12,7 +12,9 @@ export function matchesPhotoSearch(entry: PhotoQueueEntry, query: string): boole
   if (!q) return true;
   const digits = /^#?(\d+)$/.exec(q);
   if (digits) return String(entry.number).startsWith(digits[1]);
-  return entry.name.toLowerCase().split(/\s+/).some((word) => word.startsWith(q));
+  const queryWords = q.split(/\s+/).filter(Boolean);
+  const nameWords = entry.name.toLowerCase().split(/\s+/);
+  return queryWords.every((queryWord) => nameWords.some((nameWord) => nameWord.startsWith(queryWord)));
 }
 
 const time = (iso: string | null) => (iso ? parseServerTime(iso) : 0);

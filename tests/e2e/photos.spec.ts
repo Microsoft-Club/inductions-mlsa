@@ -108,6 +108,8 @@ test('photos from check-in to the panel, and deleting them all', async ({ browse
   await qmCapture.getByRole('button', { name: 'Save' }).click();
   await expect(panelCard.getByText('Now interviewing')).toBeVisible();
   await expect(panelCard).toContainText(later.full_name);
+  // The photographer's page is still open; its list updates live from the board signal, no reload.
+  await expect(photographer.getByText(later.full_name)).toHaveCount(0);
   await endCurrentInterview(qmApi);
 
   // With a photo: straight in, and the panelist sees the face on the card.

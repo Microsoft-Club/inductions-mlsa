@@ -4,6 +4,7 @@ import { errorMessage } from '../lib/api.ts';
 import { useApi } from '../lib/ApiProvider.tsx';
 import { CandidatePhoto } from './CandidatePhoto.tsx';
 import { grabFrame, shrinkPhoto } from './shrinkPhoto.ts';
+import { rememberPhoto } from './usePhoto.ts';
 
 export interface CaptureCandidate {
   id: string;
@@ -115,7 +116,9 @@ export function CaptureView({ candidate, currentVersion, onSaved, onClose }: Cap
     setBusy('saving');
     setError(null);
     try {
-      onSaved(await api.uploadPhoto(candidate.id, photo.blob));
+      const photoTakenAt = await api.uploadPhoto(candidate.id, photo.blob);
+      rememberPhoto(candidate.id, photoTakenAt, photo.blob);
+      onSaved(photoTakenAt);
     } catch (e) {
       setError(errorMessage(e));
       setSaveFailed(true);

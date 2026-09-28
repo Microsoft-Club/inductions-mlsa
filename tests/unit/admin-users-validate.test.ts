@@ -34,7 +34,7 @@ describe('validateCommand', () => {
     [{ action: 'create', username: 'okay', displayName: '   ', role: 'panelist', password: 'secret123' },
       'Name must be 1 to 80 characters'],
     [{ action: 'create', username: 'okay', displayName: 'Okay', role: 'owner', password: 'secret123' },
-      'Role must be admin, queue_manager or panelist'],
+      'Role must be admin, queue_manager, panelist or photographer'],
     [{ action: 'create', username: 'okay', displayName: 'Okay', role: 'panelist', password: 'short' },
       'Password must be 8 to 72 characters'],
     [{ action: 'reset_password', userId: 'nope', password: 'secret123' }, 'userId must be a UUID'],

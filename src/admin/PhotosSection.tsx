@@ -37,8 +37,12 @@ export function PhotosSection() {
         </p>
         <ActionButton
           variant="danger"
-          disabled={!count}
-          confirm={count ? `Delete all ${photos(count)}? This can't be undone.` : undefined}
+          disabled={count === null}
+          confirm={
+            count
+              ? `Delete all ${photos(count)}? This can't be undone.`
+              : "Remove any leftover photo files? This can't be undone."
+          }
           action={async () => {
             const deleted = await api.deleteAllPhotos();
             toast.show(`Deleted ${photos(deleted)}.`, 'success');

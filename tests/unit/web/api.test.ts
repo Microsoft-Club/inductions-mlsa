@@ -6,6 +6,7 @@ import {
   friendlyMessage,
   NETWORK_ERROR,
   NOT_ALLOWED,
+  PHOTO_TIMEOUT_ERROR,
   TIMEOUT_ERROR,
   type ApiOptions,
   type PhotoFetch,
@@ -203,7 +204,7 @@ describe('photo calls', () => {
     const stalled: PhotoFetch = (_url, init) =>
       new Promise((_resolve, reject) => init.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError'))));
     const { api: slow } = photoApi(stalled, { timeoutMs: 20 });
-    await expect(slow.uploadPhoto('c1', new Blob(['jpeg']))).rejects.toEqual(new ApiError(TIMEOUT_ERROR));
+    await expect(slow.uploadPhoto('c1', new Blob(['jpeg']))).rejects.toEqual(new ApiError(PHOTO_TIMEOUT_ERROR));
   });
 
   it('calls the photo queue and photo count functions', async () => {

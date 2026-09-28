@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiProvider } from '../../../src/lib/ApiProvider.tsx';
 import type { Api } from '../../../src/lib/api.ts';
 import { CandidatePhoto, initials } from '../../../src/photos/CandidatePhoto.tsx';
-import { clearPhotoCache } from '../../../src/photos/usePhoto.ts';
+import { clearPhotoCache, rememberPhoto } from '../../../src/photos/usePhoto.ts';
 import { candidateRecordFor, candidateRow, profile } from './fixtures.ts';
 import { fakeApi, fakeAuth, renderApp } from './helpers.tsx';
 
@@ -72,6 +72,40 @@ describe('CandidatePhoto', () => {
     const api = fakeApi({ photoBlob: vi.fn(async () => null) });
     show(api, { id: 'c12', version: 'v1' });
     expect(await screen.findByRole('img', { name: 'No photo of Ali Khan' })).toBeInTheDocument();
+  });
+
+  it('falls back to the placeholder when a stored file cannot be decoded, never a broken image', async () => {
+    const api = fakeApi();
+    show(api, { id: 'c12', version: 'v1' });
+    const img = await screen.findByRole('img', { name: 'Photo of Ali Khan' });
+    fireEvent.error(img);
+    expect(await screen.findByRole('img', { name: 'No photo of Ali Khan' })).toHaveTextContent('AK');
+  });
+
+  it('gives a broken photo another chance when the candidate or version changes', async () => {
+    const api = fakeApi();
+    const view = show(api, { id: 'c12', version: 'v1' });
+    fireEvent.error(await screen.findByRole('img', { name: 'Photo of Ali Khan' }));
+    await screen.findByRole('img', { name: 'No photo of Ali Khan' });
+
+    view.rerender(
+      <ApiProvider api={api}>
+        <CandidatePhoto candidateId="c12" version="v2" name="Ali Khan" />
+      </ApiProvider>,
+    );
+    expect(await screen.findByRole('img', { name: 'Photo of Ali Khan' })).toBeInTheDocument();
+  });
+
+  it('remembers a just-uploaded photo, so it shows without a download', async () => {
+    const api = fakeApi();
+    const blob = new Blob(['jpeg'], { type: 'image/jpeg' });
+    rememberPhoto('c12', 'v1', blob);
+    show(api, { id: 'c12', version: 'v1' });
+    expect(await screen.findByRole('img', { name: 'Photo of Ali Khan' })).toHaveAttribute('src', 'blob:1');
+    expect(api.photoBlob).not.toHaveBeenCalled();
+
+    clearPhotoCache();
+    await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:1'));
   });
 
   it('makes initials from the first two words', () => {

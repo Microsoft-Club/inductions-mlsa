@@ -28,12 +28,23 @@ describe('Photos on the admin page', () => {
     expect(api.deleteAllPhotos).toHaveBeenCalledTimes(1);
     expect(await screen.findByText('Deleted 3 photos.')).toBeInTheDocument();
     await waitFor(() => expect(within(section).getByText(/0 photos stored\./)).toBeInTheDocument());
-    expect(within(section).getByRole('button', { name: 'Delete all photos' })).toBeDisabled();
+    // A known race can leave photo files in R2 with no records (count 0); the remedy is to press again.
+    expect(within(section).getByRole('button', { name: 'Delete all photos' })).toBeEnabled();
   });
 
   it('says one photo, not one photos', async () => {
     const section = await openAdmin(fakeApi({ photoCount: vi.fn(async () => 1) }));
     expect(await within(section).findByText(/1 photo stored\./)).toBeInTheDocument();
+  });
+
+  it('at zero, still asks, but about leftover files rather than a count', async () => {
+    const section = await openAdmin(fakeApi({ photoCount: vi.fn(async () => 0) }));
+    expect(await within(section).findByText(/0 photos stored\./)).toBeInTheDocument();
+    expect(within(section).getByRole('button', { name: 'Delete all photos' })).toBeEnabled();
+
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false);
+    await userEvent.click(within(section).getByRole('button', { name: 'Delete all photos' }));
+    expect(confirm).toHaveBeenLastCalledWith("Remove any leftover photo files? This can't be undone.");
   });
 
   it('offers the Photographer role for new accounts', async () => {

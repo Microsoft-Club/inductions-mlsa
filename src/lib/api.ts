@@ -30,6 +30,7 @@ const CANDIDATE_COLUMNS =
 
 export const NETWORK_ERROR = "Can't reach the server. Check the connection and try again.";
 export const TIMEOUT_ERROR = 'The server took too long to answer. Check the board before trying again.';
+export const PHOTO_TIMEOUT_ERROR = 'The connection is too slow right now. Try again.';
 export const NOT_ALLOWED = 'Not allowed';
 
 /** An action or read failed; `message` is safe to show (usually the database's own short message). */
@@ -178,7 +179,7 @@ export function createApi(
         signal: controller.signal,
       });
     } catch {
-      throw new ApiError(controller.signal.aborted ? TIMEOUT_ERROR : NETWORK_ERROR);
+      throw new ApiError(controller.signal.aborted ? PHOTO_TIMEOUT_ERROR : NETWORK_ERROR);
     } finally {
       clearTimeout(timer);
     }
