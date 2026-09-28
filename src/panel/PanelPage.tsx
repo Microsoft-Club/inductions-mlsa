@@ -14,6 +14,7 @@ import { InterviewWorkspace } from './InterviewWorkspace.tsx';
 import { parseSection, SectionTabs, sectionPanelId, sectionTabId, YourNumbers, type Section } from './PanelistSections.tsx';
 import { evaluatedList, myPanel, panelistStats, recentList, shownInterview } from './panelView.ts';
 import { RecentInterviews } from './RecentInterviews.tsx';
+import { useStrandedMessages } from './useStrandedMessages.ts';
 
 /** /panel: the panelist's screen (admins can open it too). */
 export function PanelPage() {
@@ -116,6 +117,7 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
   }, [api, me.id, inductionId]);
 
   const shown = shownInterview(panel, recent, pinnedId, evaluations);
+  const unsent = useStrandedMessages(me.id, shown?.id ?? null, boardVersion);
   const openRecent = (interviewId: string) => {
     setPinnedId(interviewId);
     choose('interview');
@@ -180,6 +182,7 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
             locked={board.induction.results_published}
             targetMinutes={board.induction.target_interview_minutes}
             onEvaluationSubmitted={reloadEvaluations}
+            boardVersion={boardVersion}
           />
         ) : (
           <p className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-600">
@@ -190,7 +193,7 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
       </div>
 
       <div {...sectionProps('recent')}>
-        <RecentInterviews items={recentList(recent, shown?.id ?? null, evaluated)} onOpen={openRecent} />
+        <RecentInterviews items={recentList(recent, shown?.id ?? null, evaluated)} unsent={unsent} onOpen={openRecent} />
       </div>
 
       <div {...sectionProps('evaluated')}>

@@ -238,9 +238,9 @@ Supabase Realtime **Broadcast**. Messages are sent from Postgres with `realtime.
   - The timer turns amber after `target_interview_minutes`.
 - **Resilience:**
   - When a channel (re)subscribes, the screen reloads its full snapshot.
-  - Staff screens show a "Reconnecting…" banner while disconnected.
+  - Staff screens show a "Reconnecting…" banner while disconnected: at once when the device goes offline, and within about 20 seconds (a missed 10-second heartbeat) when the network stays up but carries nothing.
   - The projector also reloads every 30 seconds as a safety net. While disconnected, it keeps showing the last state with the timer still running, plus a small status dot.
-- **Chat:** messages appear instantly for the sender (optimistic) and are reconciled against the saved row. A failed send shows *Retry*.
+- **Chat:** messages appear instantly for the sender (optimistic) and are reconciled against the saved row. A failed send shows *Retry*, and unsent messages go out by themselves once the connection is back, even if the next candidate was sent in meanwhile (until then, Recent marks that interview "Message not sent"). Each message keeps its id, so it never posts twice.
 
 ## 9. Screens
 

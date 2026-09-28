@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, NETWORK_ERROR, type Api } from '../../../src/lib/api.ts';
 import type { BoardSnapshot, MyEvaluationWithInterview, PanelInterview, Recommendation } from '../../../src/lib/types.ts';
+import { chatDraftKey, loadChatDraft, saveChatDraft } from '../../../src/panel/chatDrafts.ts';
 import { board, boardPanel, candidateRow, criteriaList, interview, lane, profile } from './fixtures.ts';
 import { fakeApi, fakeAuth, renderApp, type FakeApi } from './helpers.tsx';
 
@@ -292,6 +293,23 @@ describe('the panelist screen on a bad connection', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByRole('heading', { name: '#7 Sara Ahmed' })).toBeInTheDocument();
   });
+
+  it('loads the application by itself when the board reloads after it failed', async () => {
+    const { net, overrides } = flaky();
+    const candidate = vi.fn(async (id: string) => (net.online ? candidateRow({ id }) : offline()));
+    const { api } = await openPanel({ ...overrides, candidate });
+    expect(await screen.findByText(NETWORK_ERROR)).toBeInTheDocument();
+
+    net.online = true;
+    (api as FakeApi).topics.board.event(); // the board reloads, as it does after reconnecting
+    expect(await screen.findByRole('heading', { name: '#7 Sara Ahmed' })).toBeInTheDocument();
+    expect(screen.queryByText(NETWORK_ERROR)).toBeNull();
+
+    const loads = candidate.mock.calls.length;
+    (api as FakeApi).topics.board.event();
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 100)));
+    expect(candidate).toHaveBeenCalledTimes(loads); // once it has loaded, board reloads don't fetch it again
+  });
 });
 
 describe('your numbers and sections', () => {
@@ -334,5 +352,55 @@ describe('your numbers and sections', () => {
     log.scrollTop = 0; // messages arrived while the interview was hidden
     await openSection('Interview');
     expect(log.scrollTop).toBe(480);
+  });
+});
+
+describe('a message written for an earlier candidate that never got through', () => {
+  // The panelist wrote about #6 while offline, and #7 was sent in before the connection came back.
+  const strandOne = () => saveChatDraft(chatDraftKey(me.id, 'i6'), { text: '', unsent: [{ id: 'm-offline', body: 'Ask Omar about Git' }] });
+  const recentInterviews = vi.fn(async () => [past(7, 'Sara Ahmed', 'in_progress'), past(6, 'Omar Farooq')]);
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
+  it('is sent by itself, with its own id, once the connection works', async () => {
+    strandOne();
+    const { api } = await openPanel({ panelInterviews: recentInterviews });
+    await waitFor(() => expect(api.postMessage).toHaveBeenCalledWith('i6', 'Ask Omar about Git', 'm-offline'));
+    await waitFor(() => expect(loadChatDraft(chatDraftKey(me.id, 'i6')).unsent).toEqual([]));
+  });
+
+  it('is still sent after the browser tab was closed and opened again', async () => {
+    strandOne();
+    sessionStorage.clear(); // a new tab starts with nothing in session storage
+    const { api } = await openPanel({ panelInterviews: recentInterviews });
+    await waitFor(() => expect(api.postMessage).toHaveBeenCalledWith('i6', 'Ask Omar about Git', 'm-offline'));
+  });
+
+  it('is marked in Recent while it still cannot be sent', async () => {
+    strandOne();
+    await openPanel({
+      panelInterviews: recentInterviews,
+      postMessage: vi.fn(async () => {
+        throw new ApiError(NETWORK_ERROR);
+      }),
+    });
+    await openSection(/^Recent/);
+    const recent = await screen.findByRole('region', { name: 'Recent' });
+    const omar = (await within(recent).findByRole('button', { name: '#6 Omar Farooq' })).closest('li')!;
+    await waitFor(() => expect(omar).toHaveTextContent('Message not sent'));
+  });
+
+  it('is dropped when that interview was undone, since it can never be posted', async () => {
+    strandOne();
+    const { api } = await openPanel({
+      panelInterviews: recentInterviews,
+      postMessage: vi.fn(async () => {
+        throw new ApiError('Interview not found');
+      }),
+    });
+    await waitFor(() => expect(api.postMessage).toHaveBeenCalled());
+    await waitFor(() => expect(loadChatDraft(chatDraftKey(me.id, 'i6')).unsent).toEqual([]));
   });
 });

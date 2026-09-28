@@ -64,6 +64,7 @@ export function useLiveSnapshot<T>(
     const state = loop.current;
     const generation = ++state.generation;
     let joined = false;
+    let channelUp = false;
     setStatus('connecting');
     reload();
     const stop = subscribe({
@@ -72,13 +73,26 @@ export function useLiveSnapshot<T>(
         if (generation !== state.generation) return;
         if (channelStatus === 'subscribed') {
           joined = true;
+          channelUp = true;
           setStatus('live');
           reload(); // anything broadcast while we were (re)connecting was missed
         } else {
+          channelUp = false;
           setStatus('reconnecting');
         }
       },
     });
+    // The browser knows at once when the device drops off the network; the channel only notices at
+    // its next missed heartbeat. Say so straight away, and reload the moment the network is back.
+    const offline = () => setStatus('reconnecting');
+    // A short blip can leave the channel's connection intact, and then it never reports 'subscribed'
+    // again; so trust its last report. A connection that did die fails its next heartbeat and rejoins.
+    const online = () => {
+      if (channelUp) setStatus('live');
+      reload();
+    };
+    window.addEventListener('offline', offline);
+    window.addEventListener('online', online);
     const timer = pollMs ? setInterval(reload, pollMs) : undefined;
     const stuck = setTimeout(() => {
       if (!joined && generation === state.generation) setStatus('reconnecting');
@@ -86,6 +100,8 @@ export function useLiveSnapshot<T>(
     return () => {
       state.generation++;
       stop();
+      window.removeEventListener('offline', offline);
+      window.removeEventListener('online', online);
       if (timer) clearInterval(timer);
       clearTimeout(stuck);
     };

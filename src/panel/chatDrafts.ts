@@ -1,6 +1,6 @@
 // What a panelist hasn't got onto the server yet, per interview: the text they are typing and any
-// message that failed or was still sending. Kept in sessionStorage, so it survives the workspace
-// switching to the next candidate (and a reload), but not closing the browser tab.
+// message that failed or was still sending. Kept in localStorage, like evaluation drafts, so it
+// survives the workspace switching to the next candidate, a reload, and the tab being closed.
 
 export interface ChatDraft {
   text: string;
@@ -9,9 +9,11 @@ export interface ChatDraft {
 
 const EMPTY: ChatDraft = { text: '', unsent: [] };
 
+const KEY_PREFIX = 'induction:chat-draft:';
+
 /** Per person and interview, so panelists sharing a laptop never see each other's drafts. */
 export function chatDraftKey(userId: string, interviewId: string): string {
-  return `induction:chat-draft:${userId}:${interviewId}`;
+  return `${KEY_PREFIX}${userId}:${interviewId}`;
 }
 
 function isChatDraft(value: unknown): value is ChatDraft {
@@ -27,7 +29,7 @@ function isChatDraft(value: unknown): value is ChatDraft {
 /** The saved draft, or an empty one if there is none, it is damaged, or storage is unavailable. */
 export function loadChatDraft(key: string): ChatDraft {
   try {
-    const raw = sessionStorage.getItem(key);
+    const raw = localStorage.getItem(key);
     if (!raw) return EMPTY;
     const parsed: unknown = JSON.parse(raw);
     return isChatDraft(parsed) ? parsed : EMPTY;
@@ -38,11 +40,27 @@ export function loadChatDraft(key: string): ChatDraft {
 
 export function saveChatDraft(key: string, draft: ChatDraft): void {
   try {
-    if (!draft.text && draft.unsent.length === 0) sessionStorage.removeItem(key);
-    else sessionStorage.setItem(key, JSON.stringify(draft));
+    if (!draft.text && draft.unsent.length === 0) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(draft));
   } catch {
     // Storage full or blocked: the chat still works, the draft just won't survive a switch.
   }
+}
+
+/** Every message this person wrote that hasn't reached the server yet, in any interview. */
+export function unsentMessages(userId: string): Array<{ interviewId: string; id: string; body: string }> {
+  const prefix = `${KEY_PREFIX}${userId}:`;
+  const found: Array<{ interviewId: string; id: string; body: string }> = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(prefix)) continue;
+      for (const u of loadChatDraft(key).unsent) found.push({ interviewId: key.slice(prefix.length), ...u });
+    }
+  } catch {
+    // Storage unavailable: nothing was kept, so there is nothing to send.
+  }
+  return found;
 }
 
 /** A message reached the server: don't bring it back, even if the chat was closed meanwhile. */
