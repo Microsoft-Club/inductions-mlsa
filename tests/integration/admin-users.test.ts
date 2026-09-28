@@ -173,6 +173,34 @@ describe('admin-users edge function', () => {
     }
   });
 
+  /** A fresh local copy of the protected owner account (replacing one left by an earlier run). */
+  async function freshOwner(): Promise<string> {
+    const old = must(await service.from('profiles').select('id').eq('username', 'adminmlsa').maybeSingle());
+    if (old) await service.auth.admin.deleteUser(old.id);
+    const ownerId = await makeAccount('adminmlsa', 'admin');
+    created.push(ownerId);
+    return ownerId;
+  }
+
+  it("refuses every change to the owner's account from another admin", async () => {
+    const ownerId = await freshOwner();
+    const refusal = { status: 400, body: { error: 'adminmlsa is protected. Only its owner can change it.' } };
+    expect(await callAdminUsers(adminToken, { action: 'reset_password', userId: ownerId, password: 'taken-over-1' })).toEqual(refusal);
+    expect(await callAdminUsers(adminToken, { action: 'set_active', userId: ownerId, active: false })).toEqual(refusal);
+    expect(await callAdminUsers(adminToken, { action: 'set_role', userId: ownerId, role: 'panelist' })).toEqual(refusal);
+    expect(await callAdminUsers(adminToken, { action: 'delete', userId: ownerId })).toEqual(refusal);
+
+    await expect(signIn('adminmlsa')).resolves.toBeTruthy(); // the password is unchanged
+    expect(must(await service.from('profiles').select('role, is_active').eq('id', ownerId).single())).toEqual({ role: 'admin', is_active: true });
+  });
+
+  it('lets the owner reset their own password', async () => {
+    const ownerId = await freshOwner();
+    const ownerToken = await accessToken(await signIn('adminmlsa'));
+    expect(await callAdminUsers(ownerToken, { action: 'reset_password', userId: ownerId, password: 'owner-new-pass' })).toEqual({ status: 200, body: { ok: true } });
+    await expect(signIn('adminmlsa', 'owner-new-pass')).resolves.toBeTruthy();
+  });
+
   it('resets a password', async () => {
     const username = uniqueName('it_pw');
     const userId = await makeAccount(username, 'panelist');

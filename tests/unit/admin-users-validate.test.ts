@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deleteRefusal, validateCommand } from '../../supabase/functions/admin-users/validate.ts';
+import { deleteRefusal, protectedRefusal, validateCommand } from '../../supabase/functions/admin-users/validate.ts';
 
 const USER_ID = '6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b';
 
@@ -64,6 +64,10 @@ describe('validateCommand', () => {
     );
     expect(deleteRefusal('Ali Khan', 1, 0)).toBe("Ali Khan has 1 evaluation, so the account can't be deleted. Disable it instead.");
     expect(deleteRefusal('Ali Khan', 0, 1)).toBe("Ali Khan has 1 chat message, so the account can't be deleted. Disable it instead.");
+  });
+
+  it("explains that the owner's account is protected", () => {
+    expect(protectedRefusal('adminmlsa')).toBe('adminmlsa is protected. Only its owner can change it.');
   });
 
   it('accepts the photographer role', () => {

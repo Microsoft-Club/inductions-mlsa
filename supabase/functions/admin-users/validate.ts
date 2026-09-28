@@ -27,6 +27,11 @@ export function deleteRefusal(name: string, evaluations: number, messages: numbe
   return `${name} has ${history.join(' and ')}, so the account can't be deleted. Disable it instead.`;
 }
 
+/** Why another admin can't change a protected account (see PROTECTED_USERNAMES). */
+export function protectedRefusal(username: string): string {
+  return `${username} is protected. Only its owner can change it.`;
+}
+
 function passwordError(password: unknown): string | null {
   if (typeof password !== 'string' || password.length < 8 || password.length > 72) {
     return 'Password must be 8 to 72 characters';

@@ -63,7 +63,9 @@ There is no signup. Create the first admin with
 other account from the app (`/admin` → Accounts). They can also reset passwords, change roles,
 disable accounts, and delete accounts that have no evaluations or chat messages. An account with
 either is disabled instead, so its history stays attached to it. Nobody can change their own role
-or delete their own account.
+or delete their own account. The owner's account, `adminmlsa`, is protected: no other admin can
+reset its password, disable it, change its role or delete it. To protect another account, add its
+username to `PROTECTED_USERNAMES` in `supabase/functions/_shared/accounts.ts` and redeploy `admin-users`.
 
 ## Data safety
 
