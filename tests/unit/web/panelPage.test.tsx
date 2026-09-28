@@ -359,13 +359,23 @@ describe('a message written for an earlier candidate that never got through', ()
   // The panelist wrote about #6 while offline, and #7 was sent in before the connection came back.
   const strandOne = () => saveChatDraft(chatDraftKey(me.id, 'i6'), { text: '', unsent: [{ id: 'm-offline', body: 'Ask Omar about Git' }] });
   const recentInterviews = vi.fn(async () => [past(7, 'Sara Ahmed', 'in_progress'), past(6, 'Omar Farooq')]);
-  beforeEach(() => sessionStorage.clear());
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
 
   it('is sent by itself, with its own id, once the connection works', async () => {
     strandOne();
     const { api } = await openPanel({ panelInterviews: recentInterviews });
     await waitFor(() => expect(api.postMessage).toHaveBeenCalledWith('i6', 'Ask Omar about Git', 'm-offline'));
     await waitFor(() => expect(loadChatDraft(chatDraftKey(me.id, 'i6')).unsent).toEqual([]));
+  });
+
+  it('is still sent after the browser tab was closed and opened again', async () => {
+    strandOne();
+    sessionStorage.clear(); // a new tab starts with nothing in session storage
+    const { api } = await openPanel({ panelInterviews: recentInterviews });
+    await waitFor(() => expect(api.postMessage).toHaveBeenCalledWith('i6', 'Ask Omar about Git', 'm-offline'));
   });
 
   it('is marked in Recent while it still cannot be sent', async () => {

@@ -35,7 +35,10 @@ function renderChat(api: FakeApi) {
 
 const log = () => screen.getByRole('log', { name: 'Messages' });
 
-beforeEach(() => sessionStorage.clear());
+beforeEach(() => {
+  sessionStorage.clear();
+  localStorage.clear();
+});
 
 describe('the panel discussion', () => {
   it("shows the interview's messages, marking your own", async () => {
@@ -144,6 +147,28 @@ describe('coming back to an interview', () => {
     vi.mocked(api.postMessage).mockImplementation(async (_interviewId, body, messageId) => message(messageId, 'u-panelist', 'Test panelist', body));
     await userEvent.click(within(log()).getByRole('button', { name: 'Retry' }));
     expect(api.postMessage).toHaveBeenLastCalledWith('i7', 'Ask about Docker', id);
+  });
+
+  it('still has the failed message and the half-typed text after the browser tab is closed and opened again', async () => {
+    const api = fakeApi({
+      interviewMessages: vi.fn(async () => existing),
+      postMessage: vi.fn(async () => {
+        throw new ApiError("Can't reach the server");
+      }),
+    });
+    const first = renderChat(api);
+    await within(log()).findByText('Agreed.');
+    await userEvent.type(screen.getByRole('textbox', { name: 'Message' }), 'Ask about Docker{Enter}');
+    expect(await within(log()).findByText('Not sent')).toBeInTheDocument();
+    await userEvent.type(screen.getByRole('textbox', { name: 'Message' }), 'Half typed');
+    first.unmount();
+    sessionStorage.clear(); // the tab was closed: a new tab starts with nothing in session storage
+
+    renderChat(api);
+    await within(log()).findByText('Agreed.');
+    expect(within(log()).getByText('Ask about Docker')).toBeInTheDocument();
+    expect(within(log()).getByText('Not sent')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Message' })).toHaveValue('Half typed');
   });
 
   it('sends the message that failed by itself once the interview is open on a working connection', async () => {
