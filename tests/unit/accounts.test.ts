@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createAccount, usernameToEmail } from '../../supabase/functions/_shared/accounts.ts';
+import { createAccount, isProtectedAccount, usernameToEmail } from '../../supabase/functions/_shared/accounts.ts';
 
 function fakeClient(opts: { createError?: string; insertError?: string } = {}) {
   const calls = { createUser: [] as unknown[], insert: [] as unknown[], deleteUser: [] as string[] };
@@ -33,6 +33,17 @@ const account = { username: 'yawar', displayName: 'Yawar', role: 'panelist' as c
 describe('usernameToEmail', () => {
   it('maps usernames to the internal email domain', () => {
     expect(usernameToEmail(' Yawar_01 ')).toBe('yawar_01@users.induction.local');
+  });
+});
+
+describe('isProtectedAccount', () => {
+  it('protects the owner account, however it is written', () => {
+    expect(isProtectedAccount('adminmlsa')).toBe(true);
+    expect(isProtectedAccount(' AdminMLSA ')).toBe(true);
+  });
+  it('leaves every other account alone', () => {
+    expect(isProtectedAccount('admin')).toBe(false);
+    expect(isProtectedAccount('adminmlsa2')).toBe(false);
   });
 });
 

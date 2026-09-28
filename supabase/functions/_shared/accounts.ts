@@ -8,6 +8,16 @@ export type Role = (typeof ROLES)[number];
 
 export const USERNAME_PATTERN = /^[a-z0-9_]{3,32}$/;
 
+/**
+ * The owner's account. No other admin can reset its password, disable it, change its role or delete
+ * it; only the owner can change it (reset their own password). To protect another account, add it here.
+ */
+export const PROTECTED_USERNAMES: readonly string[] = ['adminmlsa'];
+
+export function isProtectedAccount(username: string): boolean {
+  return PROTECTED_USERNAMES.includes(username.trim().toLowerCase());
+}
+
 /** People log in with a username; Supabase Auth needs an email, so we derive a private one. */
 export function usernameToEmail(username: string): string {
   return `${username.trim().toLowerCase()}@${INTERNAL_EMAIL_DOMAIN}`;

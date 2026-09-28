@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { validateCommand } from '../../supabase/functions/admin-users/validate.ts';
-import { ROLES, type Role } from '../../supabase/functions/_shared/accounts.ts';
+import { isProtectedAccount, ROLES, type Role } from '../../supabase/functions/_shared/accounts.ts';
 import { ROLE_LABELS } from '../app/homePath.ts';
 import { ActionButton, buttonClasses } from '../components/ActionButton.tsx';
 import { ActionProvider, useRunAction } from '../components/ActionProvider.tsx';
@@ -74,6 +74,8 @@ function AccountRow({ account, isMe }: { account: Account; isMe: boolean }) {
   const [problem, setProblem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const name = account.display_name;
+  // The owner's account: other admins see it, but can't change it.
+  const locked = !isMe && isProtectedAccount(account.username);
 
   function close() {
     setEditing(null);
@@ -160,6 +162,10 @@ function AccountRow({ account, isMe }: { account: Account; isMe: boolean }) {
             </button>
             {problem && <span role="alert" className="text-xs text-red-700">{problem}</span>}
           </form>
+        ) : locked ? (
+          <p className="text-right text-xs font-medium text-slate-500" title="Only its owner can change this account">
+            Protected
+          </p>
         ) : (
           <div className="flex flex-wrap justify-end gap-1">
             <button type="button" className={buttonClasses('secondary')} aria-label={`Reset password for ${name}`} onClick={() => setEditing('password')}>

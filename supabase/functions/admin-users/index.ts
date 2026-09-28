@@ -1,8 +1,8 @@
 // Admin-only account management: create accounts, reset passwords, disable/enable, change roles
 // and delete accounts that have no history. The service-role key never leaves this function.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { createAccount } from '../_shared/accounts.ts';
-import { deleteRefusal, validateCommand } from './validate.ts';
+import { createAccount, isProtectedAccount } from '../_shared/accounts.ts';
+import { deleteRefusal, protectedRefusal, validateCommand } from './validate.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -44,6 +44,13 @@ Deno.serve(async (req) => {
   const parsed = validateCommand(body);
   if (!parsed.ok) return json({ error: parsed.error }, 400);
   const cmd = parsed.command;
+
+  // The owner's account is protected: no other admin may reset, disable, re-role or delete it.
+  if (cmd.action !== 'create' && cmd.userId !== caller.user.id) {
+    const { data: target, error } = await admin.from('profiles').select('username').eq('id', cmd.userId).maybeSingle();
+    if (error) return json({ error: error.message }, 400);
+    if (target && isProtectedAccount(target.username)) return json({ error: protectedRefusal(target.username) }, 400);
+  }
 
   switch (cmd.action) {
     case 'create': {

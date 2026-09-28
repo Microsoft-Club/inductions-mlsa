@@ -12,17 +12,20 @@ const ids = {
   admin: '6f1c2d3e-0000-4000-8000-000000000001',
   queue: '6f1c2d3e-0000-4000-8000-000000000002',
   mariam: '6f1c2d3e-0000-4000-8000-000000000003',
+  owner: '6f1c2d3e-0000-4000-8000-000000000004',
 };
 const me = profile('admin', { id: ids.admin });
+const owner = profile('admin', { id: ids.owner, username: 'adminmlsa', display_name: 'Owner' });
 const accounts = [
   me,
   profile('queue_manager', { id: ids.queue, display_name: 'Queue Desk' }),
   profile('panelist', { id: ids.mariam, username: 'panelist2', display_name: 'Mariam', is_active: false }),
+  owner,
 ];
 
-async function openAdmin(overrides: Partial<Api> = {}) {
+async function openAdmin(overrides: Partial<Api> = {}, signedInAs = me) {
   const api = fakeApi({ listAccounts: vi.fn(async () => accounts), ...overrides });
-  const view = renderApp('/admin', { api, auth: fakeAuth({ signedInAs: me }).backend });
+  const view = renderApp('/admin', { api, auth: fakeAuth({ signedInAs }).backend });
   await screen.findByRole('region', { name: 'Accounts' });
   return { ...view, api };
 }
@@ -51,6 +54,21 @@ describe('the admin page', () => {
     expect(within(mine).queryByRole('button', { name: /^Disable/ })).toBeNull();
     expect(within(mine).queryByRole('button', { name: /^Change role/ })).toBeNull();
     expect(within(mine).queryByRole('button', { name: /^Delete/ })).toBeNull();
+  });
+
+  it("shows the owner's account as protected, with nothing another admin can change", async () => {
+    await openAdmin();
+    const ownerRow = await row('Owner');
+    expect(ownerRow).toHaveTextContent('Protected');
+    expect(within(ownerRow).queryAllByRole('button')).toHaveLength(0);
+  });
+
+  it('lets the owner reset their own password', async () => {
+    await openAdmin({}, owner);
+    const ownerRow = await row('Owner');
+    expect(within(ownerRow).getByRole('button', { name: 'Reset password for Owner' })).toBeInTheDocument();
+    expect(within(ownerRow).queryByRole('button', { name: /^(Change role|Disable|Delete)/ })).toBeNull();
+    expect(ownerRow).not.toHaveTextContent('Protected');
   });
 
   it("changes someone's role", async () => {
