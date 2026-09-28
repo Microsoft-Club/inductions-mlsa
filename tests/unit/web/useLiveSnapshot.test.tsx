@@ -120,3 +120,53 @@ describe('useLiveSnapshot', () => {
     expect(result.current.status).toBe('live');
   });
 });
+
+describe('useLiveSnapshot when the device loses its network', () => {
+  const goOffline = () => act(() => void window.dispatchEvent(new Event('offline')));
+  const goOnline = () => act(() => void window.dispatchEvent(new Event('online')));
+
+  it('reports reconnecting as soon as the browser says it is offline', () => {
+    const channel = fakeChannel();
+    const load = vi.fn(async () => 1);
+    const { result } = renderHook(() => useLiveSnapshot(load, channel.subscribe));
+    channel.status('subscribed');
+    goOffline();
+    expect(result.current.status).toBe('reconnecting');
+  });
+
+  it('reloads the moment the network is back, and is live again if the channel held on', async () => {
+    const channel = fakeChannel();
+    const load = vi.fn(async () => 1);
+    const { result } = renderHook(() => useLiveSnapshot(load, channel.subscribe));
+    channel.status('subscribed');
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+    goOffline();
+    goOnline();
+    expect(result.current.status).toBe('live');
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(3));
+  });
+
+  it('stays reconnecting after the network is back until a dropped channel joins again', () => {
+    const channel = fakeChannel();
+    const load = vi.fn(async () => 1);
+    const { result } = renderHook(() => useLiveSnapshot(load, channel.subscribe));
+    channel.status('subscribed');
+    goOffline();
+    channel.status('error');
+    goOnline();
+    expect(result.current.status).toBe('reconnecting');
+    channel.status('subscribed');
+    expect(result.current.status).toBe('live');
+  });
+
+  it('stops listening for network changes on unmount', async () => {
+    const channel = fakeChannel();
+    const load = vi.fn(async () => 1);
+    const { unmount } = renderHook(() => useLiveSnapshot(load, channel.subscribe));
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(1));
+    unmount();
+    goOnline();
+    await act(async () => {});
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+});

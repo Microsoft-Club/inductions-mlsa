@@ -61,6 +61,15 @@ export function ChatPanel({ interviewId, live, meId, tabOpen = false, shown = tr
     }
   }
 
+  // Once the connection is back (or the interview opens on a working one), send what failed by itself.
+  // Each message keeps its id, so one the server already has is never posted twice.
+  const failed = useRef<Pending[]>([]);
+  failed.current = unsaved.filter((p) => p.failed);
+  useEffect(() => {
+    if (live.status !== 'live') return;
+    for (const p of failed.current) void deliver(p.id, p.body);
+  }, [live.status]);
+
   function send() {
     const body = draft.trim();
     if (!body || body.length > MAX_LENGTH) return;

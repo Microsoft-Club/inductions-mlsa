@@ -79,6 +79,23 @@ describe('the panel discussion', () => {
     expect(postMessage.mock.calls[1][2]).toBe(postMessage.mock.calls[0][2]);
   });
 
+  it('sends a message that failed again by itself once the connection is back, with the same id', async () => {
+    const postMessage = vi.fn().mockRejectedValueOnce(new ApiError("Can't reach the server.")).mockImplementation(
+      async (_interviewId: string, body: string, id: string) => message(id, 'u-panelist', 'Test panelist', body),
+    );
+    const api = fakeApi({ postMessage });
+    renderChat(api);
+    act(() => api.topics.interview.status('subscribed'));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Message' }), 'Ask about Git{Enter}');
+    expect(await within(log()).findByText('Not sent')).toBeInTheDocument();
+
+    act(() => api.topics.interview.status('error')); // the connection drops…
+    expect(postMessage).toHaveBeenCalledTimes(1);
+    act(() => api.topics.interview.status('subscribed')); // …and comes back
+    await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(2));
+    expect(postMessage.mock.calls[1][2]).toBe(postMessage.mock.calls[0][2]);
+  });
+
   it('adds a line break with Shift+Enter and never sends a blank message', async () => {
     const api = fakeApi();
     renderChat(api);
@@ -127,6 +144,27 @@ describe('coming back to an interview', () => {
     vi.mocked(api.postMessage).mockImplementation(async (_interviewId, body, messageId) => message(messageId, 'u-panelist', 'Test panelist', body));
     await userEvent.click(within(log()).getByRole('button', { name: 'Retry' }));
     expect(api.postMessage).toHaveBeenLastCalledWith('i7', 'Ask about Docker', id);
+  });
+
+  it('sends the message that failed by itself once the interview is open on a working connection', async () => {
+    const api = fakeApi({
+      postMessage: vi.fn(async () => {
+        throw new ApiError("Can't reach the server");
+      }),
+    });
+    const first = renderChat(api);
+    await userEvent.type(screen.getByRole('textbox', { name: 'Message' }), 'Ask about Docker{Enter}');
+    expect(await within(log()).findByText('Not sent')).toBeInTheDocument();
+    first.unmount();
+
+    const id = vi.mocked(api.postMessage).mock.calls[0][2];
+    vi.mocked(api.postMessage).mockImplementation(async (_interviewId, body, messageId) => message(messageId, 'u-panelist', 'Test panelist', body));
+    renderChat(api);
+    expect(api.postMessage).toHaveBeenCalledTimes(1);
+    act(() => api.topics.interview.status('subscribed'));
+    await waitFor(() => expect(api.postMessage).toHaveBeenCalledTimes(2));
+    expect(api.postMessage).toHaveBeenLastCalledWith('i7', 'Ask about Docker', id);
+    await waitFor(() => expect(within(log()).queryByText('Not sent')).toBeNull());
   });
 });
 

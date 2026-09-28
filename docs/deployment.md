@@ -31,6 +31,10 @@ with `npm install` done.
 - **Realtime → Settings:** leave **"Allow public access to channels" on** (the default). The projector
   listens on a public channel; staff channels stay private and checked. If this is off, the projector
   still works but only updates every 30 seconds, with an amber dot.
+  In the same place, raise **"Database connection pool size"** from 2 to **10**. It is the pool that
+  checks each staff screen's permission when it joins; with 2, a burst of screens joining at once (the
+  venue Wi-Fi coming back, everyone's login refreshing together) timed out in the load test and left
+  some screens on "Reconnecting…" for up to 40 seconds.
 
 ## 3. Push the database and the edge function
 

@@ -9,9 +9,11 @@ export interface ChatDraft {
 
 const EMPTY: ChatDraft = { text: '', unsent: [] };
 
+const KEY_PREFIX = 'induction:chat-draft:';
+
 /** Per person and interview, so panelists sharing a laptop never see each other's drafts. */
 export function chatDraftKey(userId: string, interviewId: string): string {
-  return `induction:chat-draft:${userId}:${interviewId}`;
+  return `${KEY_PREFIX}${userId}:${interviewId}`;
 }
 
 function isChatDraft(value: unknown): value is ChatDraft {
@@ -43,6 +45,22 @@ export function saveChatDraft(key: string, draft: ChatDraft): void {
   } catch {
     // Storage full or blocked: the chat still works, the draft just won't survive a switch.
   }
+}
+
+/** Every message this person wrote that hasn't reached the server yet, in any interview. */
+export function unsentMessages(userId: string): Array<{ interviewId: string; id: string; body: string }> {
+  const prefix = `${KEY_PREFIX}${userId}:`;
+  const found: Array<{ interviewId: string; id: string; body: string }> = [];
+  try {
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (!key?.startsWith(prefix)) continue;
+      for (const u of loadChatDraft(key).unsent) found.push({ interviewId: key.slice(prefix.length), ...u });
+    }
+  } catch {
+    // Storage unavailable: nothing was kept, so there is nothing to send.
+  }
+  return found;
 }
 
 /** A message reached the server: don't bring it back, even if the chat was closed meanwhile. */
