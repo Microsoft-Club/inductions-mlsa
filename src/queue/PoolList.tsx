@@ -4,11 +4,13 @@ import { useRunAction } from '../components/ActionProvider.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
 import type { BoardPanel, BoardSnapshot, LaneEntry } from '../lib/types.ts';
 import { CandidateName, MoveButtons, SkipBadge } from './bits.tsx';
+import { NoPhotoButton, usePhotoFlow } from './PhotoFlow.tsx';
 import { freePanels, poolHint } from './queueView.ts';
 
 /** The waiting pool: everyone checked in who isn't lined up for a panel yet. */
 export function PoolList({ board }: { board: BoardSnapshot }) {
   const api = useApi();
+  const { sendIn } = usePhotoFlow();
   const hint = poolHint(board);
   const free = freePanels(board);
   const { pool } = board;
@@ -30,6 +32,7 @@ export function PoolList({ board }: { board: BoardSnapshot }) {
                 <div className="flex items-center gap-2">
                   <span className="w-5 text-sm text-slate-500 tabular-nums">{entry.position}.</span>
                   <CandidateName number={entry.number} name={entry.name} className="flex-1 font-medium" />
+                  {!entry.has_photo && <NoPhotoButton entry={entry} />}
                   <SkipBadge count={entry.skip_count} />
                 </div>
                 <div className="flex flex-wrap items-center gap-1 pl-7">
@@ -37,7 +40,7 @@ export function PoolList({ board }: { board: BoardSnapshot }) {
                     <ActionButton
                       key={panel.id}
                       variant={hinted && hint?.panelId === panel.id ? 'primary' : 'secondary'}
-                      action={() => api.sendIn(entry.candidate_id, panel.id)}
+                      action={() => sendIn(entry, panel)}
                     >
                       Send in → {panel.name}
                     </ActionButton>
