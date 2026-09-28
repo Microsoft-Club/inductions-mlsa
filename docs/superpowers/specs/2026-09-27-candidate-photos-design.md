@@ -53,7 +53,8 @@ photo functions in §6.
 
 - Logging in as a photographer lands on `/photos`. The header shows no screen links (the photographer has only one
   screen), just their name and Sign out. Admins also get a **Photos** link and can use this screen.
-- Top: a count, "12 need photo · 30 done", and a search box (number or name).
+- Top: a count, "12 need photo · 30 done", and a search box that finds numbers starting with the typed
+  digits, or words in the name starting with the typed text.
 - **Needs photo:** waiting candidates without a photo, earliest check-in first.
 - **Done:** waiting candidates with a photo, most recent photo first, each with a small thumbnail.
 - Rows are large tap targets: `#12` and the name. The lists update live (the same "board changed" signal the queue
@@ -192,7 +193,8 @@ photo functions in §6.
 - `src/photos/PhotosPage.tsx`: the photographer screen, on `useLiveSnapshot(api.photoQueue, api.subscribeBoard)`.
 - `src/photos/CaptureView.tsx`: §4.2.
 - `src/photos/CandidatePhoto.tsx` + `usePhoto(candidateId, version)`: fetches once per candidate and version, keeps
-  an object URL in a module-level cache (revoked when replaced, all cleared on sign-out), shows the placeholder meanwhile.
+  each photo version's object URL in a module-level cache until sign-out, when all of them are revoked (so a newer
+  photo never breaks an older copy still on screen), shows the placeholder meanwhile.
 - `src/queue/`: `has_photo` on `LaneEntry`; the camera icon in `PoolList` and `PanelCard`; a `NoPhotoDialog` used by
   both Send in buttons.
 - `src/panel/CandidateCard.tsx`, `src/panel/ApplicationDialog.tsx`, `src/results/CandidateRecordPage.tsx`: show `CandidatePhoto`.

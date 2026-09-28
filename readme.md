@@ -13,7 +13,7 @@ Requirements: Node 24+, Docker (your user must be in the `docker` group).
 npm install
 npm run db:start        # first run downloads the Supabase images
 npm run db:reset        # applies supabase/migrations
-npm run seed:dev        # accounts admin, queue, panelist1-4 (password: induction-dev) + 60 fake candidates
+npm run seed:dev        # accounts admin, queue, photos, panelist1-4 (password: induction-dev) + 60 fake candidates
 npm run functions:serve # in a second terminal: serves the admin-users edge function
 ```
 
@@ -29,6 +29,8 @@ npm run dev       # http://localhost:5173
 Sign in with password `induction-dev` as:
 
 - `queue` (queue manager): `/queue`, the board for check-in, lanes and send-in.
+- `photos` (photographer): `/photos`, a phone screen listing everyone waiting; tap a name, take the
+  photo, save. While developing, photos are saved in `.local-photos/` (Cloudflare R2 in production).
 - `panelist1` to `panelist4`: `/panel`, the candidate's application, the panel's discussion and your
   evaluation.
 - `admin`: `/admin` (accounts, panels, settings, projector link) and `/results` (decisions, the full
@@ -50,7 +52,7 @@ npm run test:e2e          # Playwright: the whole induction day in Chromium; nee
                           # seed:dev, functions:serve and web:env, and starts the dev server itself
 ```
 
-Each E2E run imports a few candidates ("Eesha Test …", "Chat Test …") and leaves them in the local database;
+Each E2E run imports a few candidates ("Eesha Test …", "Chat Test …", "Photo Ready …") and leaves them in the local database;
 `npm run db:reset && npm run seed:dev` clears them.
 
 ## Accounts

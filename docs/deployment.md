@@ -51,6 +51,9 @@ even though you are signed in as an admin, redeploy with
 `npx supabase functions deploy admin-users --no-verify-jwt`. That is safe: the function checks that
 the caller is an active admin itself before doing anything.
 
+Redeploy `admin-users` whenever a release adds a role (candidate photos added **Photographer**):
+until then the function refuses to create accounts with the new role.
+
 ## 4. Create the first admin
 
 Run this once, from the repository folder, with the production URL and **service_role** key. Start
@@ -72,8 +75,14 @@ your own row to choose a real password. Create every other account from that pag
    - `VITE_SUPABASE_URL` = the Project URL
    - `VITE_SUPABASE_ANON_KEY` = the anon / publishable key (never the service_role key)
    - `NODE_VERSION` = `24`
-4. Deploy. Pages serves the app for every path because the build has no `404.html`, so links such as
-   `/queue` or `/display?key=…` work when opened directly.
+4. Candidate photos are stored in Cloudflare R2:
+   - **R2 → Create bucket**, name `mlsa-induction-photos`. Leave public access (`r2.dev` and custom
+     domains) off: photos are only ever served through the site's `/api/photos`, which checks the login.
+   - In the Pages project: **Settings → Bindings → Add → R2 bucket**, variable name `PHOTOS`, bucket
+     `mlsa-induction-photos`, for **Production** (and **Preview** if you use preview builds).
+   - The photo function reads the same `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as the build.
+5. Deploy (or redeploy after adding the binding). Pages serves the app for every path because the build
+   has no `404.html`, so links such as `/queue` or `/display?key=…` work when opened directly.
 
 ## 6. Check it
 
@@ -133,3 +142,6 @@ On the Pages URL:
 3. **Next year:** create a new induction in the SQL Editor with
    `select public.create_induction('Fall 2027');` (it becomes the active one with placeholder
    criteria), update `src/csv/formLayout.ts` to the new form, and deploy.
+
+Candidate photos stay in R2 until an admin presses **Delete all photos** on `/admin`. Do that once
+decisions are final and nobody needs to put faces to names any more.
