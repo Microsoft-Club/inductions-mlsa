@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import type { Candidate } from '../lib/types.ts';
 import { visibleSections } from './applicationView.ts';
 
@@ -38,17 +38,37 @@ export function ApplicationTabs({ candidate }: { candidate: Candidate }) {
           </button>
         ))}
       </div>
-      <div role="tabpanel" id="application-panel" aria-labelledby={`application-tab-${active}`} className="max-h-[60vh] overflow-y-auto p-4">
-        <dl className="space-y-4">
-          {(section ? section.answers.map((a) => [a.q, a.a] as [string, string]) : contact.filter(([, v]) => v.trim() !== '')).map(([q, a], i) => (
-            <div key={`${active}-${i}`}>
-              <dt className="text-sm font-medium text-slate-600">{q}</dt>
-              <dd dir="auto" className="mt-1 whitespace-pre-wrap">
-                {a}
-              </dd>
-            </div>
-          ))}
-        </dl>
+      <div role="tabpanel" id="application-panel" aria-labelledby={`application-tab-${active}`} className="max-h-[60vh] overflow-y-auto p-3 sm:p-4">
+        {section ? (
+          // One box per question: the question on a tinted strip with its number, the answer below.
+          <dl className="space-y-3">
+            {section.answers.map((answer, i) => (
+              <div key={`${active}-${i}`} className="overflow-hidden rounded-lg border border-slate-200">
+                <dt className="flex items-baseline gap-2 border-b border-brand-100 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700">
+                  <span className="shrink-0 rounded bg-white px-1.5 text-xs font-semibold tabular-nums">Q{i + 1}</span>
+                  <span>{answer.q}</span>
+                </dt>
+                <dd dir="auto" className="px-3 py-2.5 whitespace-pre-wrap">
+                  {answer.a}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          // Contact details are facts, not answers: a plain label / value list.
+          <dl className="grid sm:grid-cols-[max-content_minmax(0,1fr)]">
+            {contact
+              .filter(([, value]) => value.trim() !== '')
+              .map(([label, value]) => (
+                <Fragment key={label}>
+                  <dt className="pt-2 text-sm text-slate-500 sm:border-b sm:border-slate-100 sm:pb-2">{label}</dt>
+                  <dd dir="auto" className="min-w-0 border-b border-slate-100 pb-2 break-words sm:pt-2 sm:pl-6">
+                    {value}
+                  </dd>
+                </Fragment>
+              ))}
+          </dl>
+        )}
       </div>
     </section>
   );
