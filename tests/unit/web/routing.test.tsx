@@ -8,6 +8,7 @@ import { fakeAuth, renderApp } from './helpers.tsx';
 const accounts = {
   queue: { password: 'right-password', profile: profile('queue_manager') },
   panelist: { password: 'right-password', profile: profile('panelist') },
+  photos: { password: 'right-password', profile: profile('photographer') },
 };
 
 async function signIn(username: string, password = 'right-password') {
@@ -47,11 +48,19 @@ describe('sign in and routing', () => {
     const { router } = renderApp('/', { auth: fakeAuth({ signedInAs: profile('admin') }).backend });
     await waitFor(() => expect(router.state.location.pathname).toBe('/admin'));
     const nav = screen.getByRole('navigation', { name: 'Screens' });
-    expect(nav).toHaveTextContent('QueuePanelResultsAdmin');
+    expect(nav).toHaveTextContent('QueuePanelPhotosResultsAdmin');
     expect(await screen.findByText('http://localhost:3000/display?key=test-key')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
     expect(router.state.location.search).toBe(''); // the next person to sign in starts on their own screen
+  });
+
+  it('sends a photographer to /photos and keeps them off the queue', async () => {
+    const { router } = renderApp('/login', { auth: fakeAuth({ accounts }).backend });
+    await signIn('photos');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/photos'));
+    await router.navigate('/queue');
+    expect(await screen.findByText("You don't have access to this page")).toBeInTheDocument();
   });
 });

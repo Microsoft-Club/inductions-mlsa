@@ -8,6 +8,7 @@ import type {
   CurrentInterview,
   DisplaySnapshot,
   LaneEntry,
+  PhotoQueueEntry,
   Profile,
   ResultRow,
   Role,
@@ -24,6 +25,7 @@ export function lane(...people: Array<[number, string]>): LaneEntry[] {
     position: i + 1,
     skip_count: 0,
     checked_in_at: '2026-09-26T09:00:00Z',
+    has_photo: true,
   }));
 }
 
@@ -100,6 +102,7 @@ export function candidateRow(overrides: Partial<Candidate> = {}): Candidate {
     status: 'interviewing',
     checked_in_at: '2026-09-26T09:00:00Z',
     decision: 'undecided',
+    photo_taken_at: null,
     ...overrides,
   };
 }
@@ -133,6 +136,11 @@ export function resultRow(overrides: Partial<ResultRow> = {}): ResultRow {
     recommendations: { yes: 1, strong_yes: 1 },
     ...overrides,
   };
+}
+
+/** One waiting candidate on the photographer's list; no photo unless overridden. */
+export function photoEntry(number: number, name: string, overrides: Partial<PhotoQueueEntry> = {}): PhotoQueueEntry {
+  return { candidate_id: `c${number}`, number, name, checked_in_at: '2026-09-26T09:00:00Z', photo_taken_at: null, ...overrides };
 }
 
 export function candidateRecordFor(candidate: Candidate = candidateRow()): CandidateRecord {

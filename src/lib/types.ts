@@ -2,7 +2,7 @@
 // screen reads through src/lib/api.ts, and tests/integration/web-api.test.ts checks these shapes
 // against the real functions.
 
-export type Role = 'admin' | 'queue_manager' | 'panelist';
+export type Role = 'admin' | 'queue_manager' | 'panelist' | 'photographer';
 export type CandidateStatus = 'registered' | 'waiting' | 'interviewing' | 'interviewed';
 
 export interface Profile {
@@ -23,6 +23,8 @@ export interface LaneEntry {
   position: number;
   skip_count: number;
   checked_in_at: string | null;
+  /** False shows the queue manager's camera icon and the "no photo yet" question at Send in. */
+  has_photo: boolean;
 }
 
 export interface CurrentInterview {
@@ -91,6 +93,15 @@ export interface CandidateSummary {
   status: CandidateStatus;
 }
 
+/** One waiting candidate on the photographer's list (photo_queue()). */
+export interface PhotoQueueEntry {
+  candidate_id: string;
+  number: number;
+  name: string;
+  checked_in_at: string | null;
+  photo_taken_at: string | null;
+}
+
 export type AnswerSection = 'general' | 'dev' | 'logikal' | 'lnd' | 'marketing';
 
 export interface Answer {
@@ -150,6 +161,8 @@ export interface Candidate {
   status: CandidateStatus;
   checked_in_at: string | null;
   decision: Decision;
+  /** When the photo on file was taken (also its version); null = no photo. */
+  photo_taken_at: string | null;
 }
 
 /** One interview on a panel, newest first (the panelist's current and recent interviews). */

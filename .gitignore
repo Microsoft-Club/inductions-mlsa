@@ -10,3 +10,6 @@ supabase/.branches/
 dist/
 test-results/
 playwright-report/
+
+# Candidate photos saved by the local dev server (R2 in production)
+.local-photos/

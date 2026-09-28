@@ -82,7 +82,7 @@ describe('panelist, admin and results API', () => {
     const candidate = await panelistA.candidate(candidateId);
     expect(sortedKeys(candidate)).toEqual([
       'account_email', 'answers', 'batch', 'checked_in_at', 'decision', 'department', 'email', 'full_name', 'id',
-      'number', 'phone', 'preferences', 'reg_number', 'status', 'submitted_at',
+      'number', 'phone', 'photo_taken_at', 'preferences', 'reg_number', 'status', 'submitted_at',
     ]);
     expect(candidate.answers.general?.[0]).toEqual({ q: 'Why MLSA?', a: 'To learn.' });
     await expect(panelistA.candidate('00000000-0000-0000-0000-000000000000')).rejects.toEqual(new ApiError('Candidate not found'));

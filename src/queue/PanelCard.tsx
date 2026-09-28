@@ -3,6 +3,7 @@ import { Timer } from '../components/Timer.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
 import type { BoardPanel, Role } from '../lib/types.ts';
 import { CandidateName, MoveButtons, SkipBadge } from './bits.tsx';
+import { NoPhotoButton, usePhotoFlow } from './PhotoFlow.tsx';
 import { canDeletePanel } from './queueView.ts';
 
 interface PanelCardProps {
@@ -13,6 +14,7 @@ interface PanelCardProps {
 
 export function PanelCard({ panel, targetMinutes, role }: PanelCardProps) {
   const api = useApi();
+  const { sendIn } = usePhotoFlow();
   const { current, last_ended: lastEnded } = panel;
 
   return (
@@ -77,11 +79,12 @@ export function PanelCard({ panel, targetMinutes, role }: PanelCardProps) {
                 <div className="flex items-center gap-2">
                   <span className="w-5 text-sm text-slate-500 tabular-nums">{entry.position}.</span>
                   <CandidateName number={entry.number} name={entry.name} className="flex-1 font-medium" />
+                  {!entry.has_photo && <NoPhotoButton entry={entry} />}
                   <SkipBadge count={entry.skip_count} />
                 </div>
                 <div className="flex flex-wrap gap-1 pl-7">
                   {entry.position === 1 && !current && (
-                    <ActionButton variant="primary" label={`Send #${entry.number} in to ${panel.name}`} action={() => api.sendIn(entry.candidate_id, panel.id)}>
+                    <ActionButton variant="primary" label={`Send #${entry.number} in to ${panel.name}`} action={() => sendIn(entry, panel)}>
                       Send in
                     </ActionButton>
                   )}

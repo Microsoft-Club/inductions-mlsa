@@ -3,7 +3,7 @@
 
 export const INTERNAL_EMAIL_DOMAIN = 'users.induction.local';
 
-export const ROLES = ['admin', 'queue_manager', 'panelist'] as const;
+export const ROLES = ['admin', 'queue_manager', 'panelist', 'photographer'] as const;
 export type Role = (typeof ROLES)[number];
 
 export const USERNAME_PATTERN = /^[a-z0-9_]{3,32}$/;

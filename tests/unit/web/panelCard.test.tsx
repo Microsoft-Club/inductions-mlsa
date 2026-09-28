@@ -8,6 +8,7 @@ import { ApiProvider } from '../../../src/lib/ApiProvider.tsx';
 import { ClockProvider } from '../../../src/lib/ClockProvider.tsx';
 import type { BoardPanel, Role } from '../../../src/lib/types.ts';
 import { PanelCard } from '../../../src/queue/PanelCard.tsx';
+import { PhotoFlowProvider } from '../../../src/queue/PhotoFlow.tsx';
 import { boardPanel, interview, lane } from './fixtures.ts';
 import { fakeApi } from './helpers.tsx';
 
@@ -18,7 +19,9 @@ function renderCard(panel: BoardPanel, role: Role = 'queue_manager') {
       <ToastProvider>
         <ClockProvider serverNow={api.serverNow}>
           <ActionProvider>
-            <PanelCard panel={panel} targetMinutes={15} role={role} />
+            <PhotoFlowProvider>
+              <PanelCard panel={panel} targetMinutes={15} role={role} />
+            </PhotoFlowProvider>
           </ActionProvider>
         </ClockProvider>
       </ToastProvider>

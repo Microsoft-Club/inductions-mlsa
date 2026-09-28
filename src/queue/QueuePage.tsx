@@ -10,6 +10,7 @@ import { useLiveSnapshot } from '../lib/useLiveSnapshot.ts';
 import { CandidateListDialog } from './CandidateListDialog.tsx';
 import { ImportDialog } from './ImportDialog.tsx';
 import { PanelCard } from './PanelCard.tsx';
+import { PhotoFlowProvider } from './PhotoFlow.tsx';
 import { PoolList } from './PoolList.tsx';
 import { parseListFilter, type ListFilter } from './queueView.ts';
 import { TopBar } from './TopBar.tsx';
@@ -63,25 +64,27 @@ export function QueuePage() {
 
   return (
     <ActionProvider onSettled={reload}>
-      <ConnectionBanner status={status} />
-      <TopBar board={board} onImport={() => setImporting(true)} onShowList={openList} canReadForms={role === 'admin'} />
-      {error && (
-        <p role="alert" className="bg-red-50 px-4 py-2 text-sm text-red-800">
-          Couldn't refresh the board: {error}
-        </p>
-      )}
-      <main className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_26rem]">
-        <div className="grid content-start gap-4 lg:grid-cols-2">
-          {board.panels.map((panel) => (
-            <PanelCard key={panel.id} panel={panel} targetMinutes={board.induction.target_interview_minutes} role={role} />
-          ))}
-        </div>
-        <PoolList board={board} />
-      </main>
-      {importing && <ImportDialog onClose={() => setImporting(false)} />}
-      {listFilter && (
-        <CandidateListDialog board={board} filter={listFilter} onFilterChange={openList} onClose={closeList} canReadForms={role === 'admin'} />
-      )}
+      <PhotoFlowProvider>
+        <ConnectionBanner status={status} />
+        <TopBar board={board} onImport={() => setImporting(true)} onShowList={openList} canReadForms={role === 'admin'} />
+        {error && (
+          <p role="alert" className="bg-red-50 px-4 py-2 text-sm text-red-800">
+            Couldn't refresh the board: {error}
+          </p>
+        )}
+        <main className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_26rem]">
+          <div className="grid content-start gap-4 lg:grid-cols-2">
+            {board.panels.map((panel) => (
+              <PanelCard key={panel.id} panel={panel} targetMinutes={board.induction.target_interview_minutes} role={role} />
+            ))}
+          </div>
+          <PoolList board={board} />
+        </main>
+        {importing && <ImportDialog onClose={() => setImporting(false)} />}
+        {listFilter && (
+          <CandidateListDialog board={board} filter={listFilter} onFilterChange={openList} onClose={closeList} canReadForms={role === 'admin'} />
+        )}
+      </PhotoFlowProvider>
     </ActionProvider>
   );
 }
