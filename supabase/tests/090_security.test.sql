@@ -14,7 +14,7 @@ select results_eq(
       order by 1 $$,
   $$ values ('add_panel'::text collate "C"), ('authorize_photo_purge'), ('authorize_photo_upload'),
             ('authorize_photo_view'), ('board_snapshot'), ('candidate_record'), ('check_in'), ('clear_photos'),
-            ('delete_panel'), ('display_snapshot'), ('end_interview'), ('evaluation_count'), ('evaluations_export'),
+            ('delete_panel'), ('dismiss_form_warning'), ('display_snapshot'), ('end_interview'), ('evaluation_count'), ('evaluations_export'),
             ('get_display_key'), ('has_role'), ('import_candidates'), ('interview_messages'),
             ('move_candidate'), ('photo_count'), ('photo_queue'), ('post_message'), ('published_results'),
             ('record_photo'), ('regenerate_display_key'), ('reopen_interview'), ('results_table'), ('send_in'),

@@ -95,7 +95,7 @@ describe('web API layer', () => {
 
     await qm.checkIn(candidate.id);
     let board = await qm.boardSnapshot();
-    expect(sortedKeys(board)).toEqual(['counts', 'induction', 'panels', 'pool', 'server_time']);
+    expect(sortedKeys(board)).toEqual(['counts', 'form_warnings', 'induction', 'panels', 'pool', 'server_time']);
     expect(sortedKeys(board.induction)).toEqual(['id', 'name', 'results_published', 'target_interview_minutes']);
     expect(sortedKeys(board.counts)).toEqual(['interviewed', 'interviewing', 'registered', 'waiting']);
     const pooled = board.pool.find((e) => e.candidate_id === candidate.id);

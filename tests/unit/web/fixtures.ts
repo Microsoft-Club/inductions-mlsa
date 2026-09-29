@@ -48,6 +48,7 @@ export function board(overrides: Partial<BoardSnapshot> = {}): BoardSnapshot {
       boardPanel('p2', 'Panel 2', { is_default: true, lane: lane([12, 'Ali Raza']) }),
     ],
     pool: lane([20, 'Bilal Khan'], [21, 'عائشہ خان'], [22, "Zara O'Brien-Khan"]),
+    form_warnings: [],
     ...overrides,
   };
 }

@@ -1,6 +1,7 @@
 // Shapes of what the database functions return (see supabase/migrations). Kept by hand: every
 // screen reads through src/lib/api.ts, and tests/integration/web-api.test.ts checks these shapes
 // against the real functions.
+import type { Answer, AnswerSection, ImportRow } from '../../supabase/functions/_shared/formRows.ts';
 
 export type Role = 'admin' | 'queue_manager' | 'panelist' | 'photographer';
 export type CandidateStatus = 'registered' | 'waiting' | 'interviewing' | 'interviewed';
@@ -55,12 +56,24 @@ export interface BoardPanel {
   panelists: { id: string; display_name: string }[];
 }
 
+/** Something the Google Form sync wants a person to check (board_snapshot → form_warnings). */
+export interface FormWarning {
+  id: string;
+  /** '' when the response had none, or when the warning is about the form itself. */
+  reg_number: string;
+  name: string;
+  reason: string;
+  created_at: string;
+}
+
 export interface BoardSnapshot {
   induction: { id: string; name: string; target_interview_minutes: number; results_published: boolean };
   server_time: string;
   counts: Record<CandidateStatus, number>;
   panels: BoardPanel[];
   pool: LaneEntry[];
+  /** Newest first; always empty for panelists. */
+  form_warnings: FormWarning[];
 }
 
 export interface DisplayPerson {
@@ -102,28 +115,8 @@ export interface PhotoQueueEntry {
   photo_taken_at: string | null;
 }
 
-export type AnswerSection = 'general' | 'dev' | 'logikal' | 'lnd' | 'marketing';
-
-export interface Answer {
-  q: string;
-  a: string;
-}
-
-/** One form response, as import_candidates(p_rows) expects it. */
-export interface ImportRow {
-  /** ISO 8601 with offset, or null when the timestamp couldn't be read (the server then uses now()). */
-  submitted_at: string | null;
-  reg_number: string;
-  full_name: string;
-  email: string;
-  account_email: string;
-  phone: string;
-  department: string;
-  batch: string;
-  /** Team preferences 1–4 in rank order; '' when a rank was left blank. */
-  preferences: string[];
-  answers: Record<AnswerSection, Answer[]>;
-}
+// Form responses: shared with the form-sync edge function (supabase/functions/_shared/formRows.ts).
+export type { Answer, AnswerSection, ImportRow };
 
 export interface ImportFlag {
   reg_number: string;

@@ -45,10 +45,13 @@ npx supabase login                           # opens the browser once
 npx supabase link --project-ref <ref>        # asks for the database password from step 1
 npx supabase db push                         # creates the tables, functions and the Fall 2026 induction
 npx supabase functions deploy admin-users    # account management (create, reset password, disable)
+npx supabase functions deploy form-sync --no-verify-jwt   # Google Form responses (docs/google-form-sync.md)
 ```
 
 `db push` applies every file in `supabase/migrations/` in order; run it again after future changes.
-The edge function gets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from Supabase automatically.
+The edge functions get `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from Supabase automatically.
+`form-sync` also needs the `FORM_SYNC_SECRET` secret; `docs/google-form-sync.md` has the whole setup,
+including the Apps Script on the form's responses sheet.
 
 If creating an account from the admin page later fails with "Not allowed" or an "Invalid JWT" error
 even though you are signed in as an admin, redeploy with
@@ -138,7 +141,8 @@ On the Pages URL:
   should not sign in.
 - **Settings** (Admin page): induction name and target interview length.
 - **Candidates:** export the Google Form responses as CSV and import them from the queue board.
-  Importing again later is safe.
+  Importing again later is safe. With the Google Form sync set up (`docs/google-form-sync.md`),
+  later responses arrive by themselves; check the board for its warnings.
 - **Projector:** open the projector link on the projector machine and leave it running. If the link
   is ever shared by mistake, use **Make a new link** and open the new one.
 - **Dry run:** rehearse on a separate free Supabase project (repeat steps 1–5 with it and a second
@@ -151,7 +155,7 @@ On the Pages URL:
    something needs fixing.
 3. **Next year:** create a new induction in the SQL Editor with
    `select public.create_induction('Fall 2027');` (it becomes the active one with placeholder
-   criteria), update `src/csv/formLayout.ts` to the new form, and deploy.
+   criteria), update `supabase/functions/_shared/formLayout.ts` to the new form, and deploy.
 
 Candidate photos stay in R2 until an admin presses **Delete all photos** on `/admin`. Do that once
 decisions are final and nobody needs to put faces to names any more.

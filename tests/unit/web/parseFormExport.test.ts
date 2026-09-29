@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import fixture from '../../../fixtures/form-export-fake.csv?raw';
-import { FORM_LAYOUT } from '../../../src/csv/formLayout.ts';
-import { parseFormExport, parseSheetsTimestamp } from '../../../src/csv/parseFormExport.ts';
+import { FORM_LAYOUT } from '../../../supabase/functions/_shared/formLayout.ts';
+import { parseSheetsTimestamp } from '../../../supabase/functions/_shared/formRows.ts';
+import { parseFormExport } from '../../../src/csv/parseFormExport.ts';
 
 /** The fake export with one header cell renamed. */
 function renameHeader(from: string, to: string): string {

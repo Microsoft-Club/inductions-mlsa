@@ -42,10 +42,12 @@ describe('createApi', () => {
     await expect(api.sendIn('c1', 'p1')).resolves.toBe('interview-1');
     await api.moveCandidate('c1', null, null);
     await api.importCandidates([]);
+    await api.dismissFormWarning('w1');
     expect(rpc.mock.calls).toEqual([
       ['send_in', { p_candidate_id: 'c1', p_panel_id: 'p1' }],
       ['move_candidate', { p_candidate_id: 'c1', p_panel_id: null, p_position: null }],
       ['import_candidates', { p_rows: [] }],
+      ['dismiss_form_warning', { p_id: 'w1' }],
     ]);
   });
 

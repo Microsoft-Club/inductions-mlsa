@@ -8,6 +8,7 @@ import { FullPageMessage } from '../components/FullPageMessage.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
 import { useLiveSnapshot } from '../lib/useLiveSnapshot.ts';
 import { CandidateListDialog } from './CandidateListDialog.tsx';
+import { FormWarnings } from './FormWarnings.tsx';
 import { ImportDialog } from './ImportDialog.tsx';
 import { PanelCard } from './PanelCard.tsx';
 import { PhotoFlowProvider } from './PhotoFlow.tsx';
@@ -67,6 +68,8 @@ export function QueuePage() {
       <PhotoFlowProvider>
         <ConnectionBanner status={status} />
         <TopBar board={board} onImport={() => setImporting(true)} onShowList={openList} canReadForms={role === 'admin'} />
+        {/* ?? []: a database without the form-sync migration yet has no form_warnings. */}
+        <FormWarnings warnings={board.form_warnings ?? []} />
         {error && (
           <p role="alert" className="bg-red-50 px-4 py-2 text-sm text-red-800">
             Couldn't refresh the board: {error}

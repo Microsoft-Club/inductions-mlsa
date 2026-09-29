@@ -1,7 +1,8 @@
-// The Fall 2026 Google Form export, column by column (0-based, as in the CSV). Next year's form is
-// a change to this file only. Headers are compared after collapsing whitespace (normalizeHeader),
-// so the trailing spaces and line breaks Google leaves in header cells don't matter.
-import type { AnswerSection } from '../lib/types.ts';
+// The Fall 2026 Google Form's columns, in order (0-based, as in the CSV export and the responses
+// sheet). Next year's form is a change to this file only; the CSV import and the form-sync edge
+// function both read it. Headers are compared after collapsing whitespace (normalizeHeader), so the
+// trailing spaces and line breaks Google leaves in header cells don't matter.
+import type { AnswerSection } from './formRows.ts';
 
 export type CandidateField =
   | 'submitted_at'
