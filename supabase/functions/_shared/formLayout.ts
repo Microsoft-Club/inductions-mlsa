@@ -84,7 +84,7 @@ export const FORM_LAYOUT: FormLayout = {
     /* 42 */ { header: 'On a scale of 1 to 5, how would you rate your ability to create visually compelling marketing designs that balance brand consistency, effective typography and audience engagement?', target: answer('marketing') },
     /* 43 */ { header: 'On a scale of 1 to 5, how would you rate your ability to conceptualize and edit engaging reels that combine creative ideas, effective storytelling, visual appeal, and audience retention?', target: answer('marketing') },
     /* 44 */ { header: 'What excites you most about joining the Marketing Team?', target: answer('marketing') },
-    /* 45 */ { header: 'Share a poster, reel, or any other creative work you’ve made.', target: answer('marketing') },
+    /* 45 */ { header: 'Show us what you can create! Please share at least one poster, reel, video, or other creative work you’ve made. This is an important part of the selection process.', target: answer('marketing') },
     /* 46 */ { header: 'Which team is your first preference?', target: preference(1) },
     /* 47 */ { header: 'Which is your second preference?', target: preference(2) },
     /* 48 */ { header: 'Which is your third preference?', target: preference(3) },
