@@ -3,7 +3,7 @@
 create extension if not exists pgtap with schema extensions;
 
 create schema if not exists tests;
-grant usage on schema tests to anon, authenticated;
+grant usage on schema tests to anon, authenticated, service_role;
 
 -- Wipes all app data inside the calling test's transaction and creates a fresh active induction.
 create or replace function tests.reset_app() returns uuid
@@ -57,6 +57,14 @@ language plpgsql as $$
 begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
+end $$;
+
+-- Switches the rest of the transaction to the service role, as the edge functions call the database.
+create or replace function tests.as_service_role() returns void
+language plpgsql as $$
+begin
+  perform set_config('role', 'service_role', true);
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
 end $$;
 
 create or replace function tests.add_candidate(p_number int, p_name text default null, p_reg text default null)
@@ -151,7 +159,7 @@ language sql stable as $$
    where (r ->> 'number')::int = p_number
 $$;
 
-grant execute on all functions in schema tests to anon, authenticated;
+grant execute on all functions in schema tests to anon, authenticated, service_role;
 
 select plan(1);
 select ok(true, 'test helpers installed');

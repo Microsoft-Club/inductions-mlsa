@@ -50,6 +50,7 @@ export function fakeApi(overrides: Partial<Api> = {}): FakeApi {
     addPanel: vi.fn(async () => 'p-new'),
     deletePanel: vi.fn(async () => {}),
     importCandidates: vi.fn(async () => ({ added: 0, updated: 0, flagged: [] })),
+    dismissFormWarning: vi.fn(async () => {}),
     subscribeBoard: vi.fn(() => topics.board.subscribe),
     subscribeDisplay: vi.fn(() => topics.display.subscribe),
     setMyPanel: vi.fn(async () => {}),

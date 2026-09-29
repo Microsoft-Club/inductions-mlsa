@@ -69,6 +69,8 @@ export interface Api {
   addPanel(): Promise<string>;
   deletePanel(panelId: string): Promise<void>;
   importCandidates(rows: ImportRow[]): Promise<ImportResult>;
+  /** Takes a Google Form sync warning off the board. */
+  dismissFormWarning(warningId: string): Promise<void>;
   subscribeBoard(): Subscribe;
   subscribeDisplay(key: string): Subscribe;
 
@@ -215,6 +217,7 @@ export function createApi(
     addPanel: () => rpc<string>('add_panel'),
     deletePanel: (panelId) => rpc<void>('delete_panel', { p_panel_id: panelId }),
     importCandidates: (rows) => rpc<ImportResult>('import_candidates', { p_rows: rows }, importTimeoutMs),
+    dismissFormWarning: (warningId) => rpc<void>('dismiss_form_warning', { p_id: warningId }),
     subscribeBoard: () => broadcastSubscriber(client, 'board', true),
     subscribeDisplay: (key) => broadcastSubscriber(client, `display:${key}`, false),
 

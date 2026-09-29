@@ -3,7 +3,8 @@
 Realtime web app for Microsoft Club GIKI inductions: queue manager board, panelist screen with
 per-candidate chat and evaluations, projector display, admin results and a public results page.
 Design: `docs/superpowers/specs/2026-09-25-induction-system-design.md`.
-Deploying to Supabase and Cloudflare Pages: `docs/deployment.md`.
+Deploying to Supabase and Cloudflare Pages: `docs/deployment.md`. New Google Form responses can
+reach the app by themselves: `docs/google-form-sync.md`.
 
 ## Local development
 
@@ -14,7 +15,8 @@ npm install
 npm run db:start        # first run downloads the Supabase images
 npm run db:reset        # applies supabase/migrations
 npm run seed:dev        # accounts admin, queue, photos, panelist1-4 (password: induction-dev) + 60 fake candidates
-npm run functions:serve # in a second terminal: serves the admin-users edge function
+cp supabase/functions/.env.example supabase/functions/.env   # local secret for form-sync
+npm run functions:serve # in a second terminal: serves the admin-users and form-sync edge functions
 ```
 
 `npm run db:start` skips Studio and other services the app doesn't use, to save disk space.
