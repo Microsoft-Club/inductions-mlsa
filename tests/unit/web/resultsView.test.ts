@@ -2,6 +2,8 @@ import Papa from 'papaparse';
 import { describe, expect, it } from 'vitest';
 import type { EvaluationExportRow } from '../../../src/lib/types.ts';
 import {
+  batchLabel,
+  batchOptions,
   candidatesCsv,
   csvFileName,
   evaluationsCsv,
@@ -40,12 +42,37 @@ describe('sortRows and filterRows', () => {
   });
 
   it('filters by status, decision and a number, name or reg number', () => {
-    expect(filterRows(rows, { status: 'interviewed', decision: 'all', query: '' }).map((r) => r.number)).toEqual([7, 9]);
-    expect(filterRows(rows, { status: 'all', decision: 'selected', query: '' }).map((r) => r.number)).toEqual([7]);
-    expect(filterRows(rows, { status: 'all', decision: 'all', query: 'عائشہ' }).map((r) => r.number)).toEqual([9]);
-    expect(filterRows(rows, { status: 'all', decision: 'all', query: '#2' }).map((r) => r.number)).toEqual([2]);
-    expect(filterRows(rows, { status: 'all', decision: 'all', query: '2025009' }).map((r) => r.number)).toEqual([9]); // a reg number is all digits too
-    expect(filterRows(rows, { status: 'all', decision: 'all', query: ' 2025 009 ' }).map((r) => r.number)).toEqual([9]);
+    expect(filterRows(rows, { status: 'interviewed', decision: 'all', query: '', batch: 'all' }).map((r) => r.number)).toEqual([7, 9]);
+    expect(filterRows(rows, { status: 'all', decision: 'selected', query: '', batch: 'all' }).map((r) => r.number)).toEqual([7]);
+    expect(filterRows(rows, { status: 'all', decision: 'all', query: 'عائشہ', batch: 'all' }).map((r) => r.number)).toEqual([9]);
+    expect(filterRows(rows, { status: 'all', decision: 'all', query: '#2', batch: 'all' }).map((r) => r.number)).toEqual([2]);
+    expect(filterRows(rows, { status: 'all', decision: 'all', query: '2025009', batch: 'all' }).map((r) => r.number)).toEqual([9]); // a reg number is all digits too
+    expect(filterRows(rows, { status: 'all', decision: 'all', query: ' 2025 009 ', batch: 'all' }).map((r) => r.number)).toEqual([9]);
+  });
+
+  it('filters by batch', () => {
+    const mixed = [
+      resultRow({ candidate_id: 'c1', number: 1, reg_number: '2025001', batch: 'B35' }),
+      resultRow({ candidate_id: 'c2', number: 2, reg_number: '2026002', batch: 'B36' }),
+      resultRow({ candidate_id: 'c3', number: 3, reg_number: '2026003', batch: 'B36' }),
+    ];
+    const only = (batch: string) => filterRows(mixed, { status: 'all', decision: 'all', query: '', batch }).map((r) => r.number);
+    expect(only('B36')).toEqual([2, 3]);
+    expect(only('B35')).toEqual([1]);
+    expect(only('all')).toEqual([1, 2, 3]);
+  });
+});
+
+describe('batches', () => {
+  it('offers each batch that candidates chose, in order, once', () => {
+    const batches = ['B36', 'B35', 'B36', '', 'B35'].map((batch, i) => resultRow({ candidate_id: `c${i}`, number: i + 1, batch }));
+    expect(batchOptions(batches)).toEqual(['B35', 'B36']);
+  });
+
+  it('names "B35" as Batch 35 and leaves anything else as it was', () => {
+    expect(batchLabel('B35')).toBe('Batch 35');
+    expect(batchLabel('b36')).toBe('Batch 36');
+    expect(batchLabel('Other')).toBe('Other');
   });
 });
 

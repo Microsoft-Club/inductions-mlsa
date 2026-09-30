@@ -10,6 +10,8 @@ import { rankedPreferences } from '../panel/applicationView.ts';
 import { DecisionSelect } from './DecisionSelect.tsx';
 import { downloadCsv } from './download.ts';
 import {
+  batchLabel,
+  batchOptions,
   candidatesCsv,
   csvFileName,
   DECISION_LABELS,
@@ -31,7 +33,7 @@ export function ResultsPage() {
   const [criteria, setCriteria] = useState<Criterion[]>([]);
   const [induction, setInduction] = useState<InductionSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Filters>({ status: 'all', decision: 'all', query: '' });
+  const [filters, setFilters] = useState<Filters>({ status: 'all', decision: 'all', batch: 'all', query: '' });
   const [sort, setSort] = useState<SortState>({ key: 'number', dir: 'asc' });
 
   // Reloads can overlap (Refresh, and one after every decision); only the newest one may land.
@@ -131,6 +133,21 @@ export function ResultsPage() {
             </select>
           </label>
           <label className="font-medium">
+            Batch
+            <select
+              className="mt-1 block h-9 rounded-md border border-slate-300 bg-white px-2"
+              value={filters.batch}
+              onChange={(e) => setFilters((f) => ({ ...f, batch: e.target.value }))}
+            >
+              <option value="all">All</option>
+              {batchOptions(rows).map((b) => (
+                <option key={b} value={b}>
+                  {batchLabel(b)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="font-medium">
             Find
             <input
               type="search"
@@ -171,7 +188,10 @@ export function ResultsPage() {
                     <Link className="font-medium text-brand-700 hover:underline" to={`/results/${row.candidate_id}`}>
                       <bdi>{row.full_name}</bdi>
                     </Link>
-                    <div className="text-xs text-slate-500">{row.reg_number}</div>
+                    <div className="text-xs text-slate-500">
+                      {row.reg_number}
+                      {row.batch && ` · ${batchLabel(row.batch)}`}
+                    </div>
                   </td>
                   <td className="px-3 py-2 text-xs text-slate-600">
                     {rankedPreferences(row.preferences).map((p) => `${p.rank}. ${p.team}`).join(' · ')}

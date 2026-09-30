@@ -71,6 +71,26 @@ describe('the results page', () => {
     expect(screen.getByRole('columnheader', { name: 'General avg' })).toHaveAttribute('aria-sort', 'descending');
   });
 
+  it('filters by batch, and shows each candidate\'s batch', async () => {
+    await openResults('/results', {
+      resultsTable: vi.fn(async () => [
+        resultRow({ candidate_id: 'c7', number: 7, reg_number: '2025007', batch: 'B35' }),
+        resultRow({ candidate_id: 'c2', number: 2, full_name: 'Ali Raza', reg_number: '2026002', batch: 'B36' }),
+        resultRow({ candidate_id: 'c9', number: 9, full_name: 'Bilal Khan', reg_number: '2026009', batch: 'B36' }),
+      ]),
+    });
+    await screen.findByRole('table', { name: 'Results' });
+    const batch = screen.getByRole('combobox', { name: 'Batch' });
+    expect(within(batch).getAllByRole('option').map((o) => o.textContent)).toEqual(['All', 'Batch 35', 'Batch 36']);
+    expect(bodyRows()[1]).toHaveTextContent('2025007 · Batch 35');
+
+    await userEvent.selectOptions(batch, 'B36');
+    expect(numbers()).toEqual(['#2', '#9']);
+    expect(screen.getByText('Showing 2 of 3')).toBeInTheDocument();
+    await userEvent.selectOptions(batch, 'all');
+    expect(numbers()).toEqual(['#2', '#7', '#9']);
+  });
+
   it('records a decision', async () => {
     const { api } = await openResults();
     await screen.findByRole('table', { name: 'Results' });
