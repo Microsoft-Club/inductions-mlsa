@@ -3,13 +3,13 @@ select no_plan();
 
 select tests.reset_app();
 
--- create_induction: one active induction, Panel 1 + Panel 2, nine placeholder criteria
+-- create_induction: one active induction, Panel 1 + Panel 2, ten placeholder criteria
 select is((select count(*)::int from public.inductions where is_active), 1, 'exactly one active induction');
 select is((select array_agg(name order by sort_order) from public.panels), array['Panel 1', 'Panel 2'], 'Panel 1 and Panel 2 exist');
 select ok((select bool_and(is_default) from public.panels), 'both are default panels');
-select is((select count(*)::int from public.evaluation_criteria), 9, 'nine placeholder criteria');
+select is((select count(*)::int from public.evaluation_criteria), 10, 'ten placeholder criteria');
 select is((select array_agg(key order by sort_order) from public.evaluation_criteria where category = 'team_fit'),
-          array['fit_dev', 'fit_logikal', 'fit_lnd', 'fit_marketing'], 'team-fit criteria');
+          array['fit_dev', 'fit_logikal', 'fit_lnd', 'fit_marketing', 'fit_brainees'], 'team-fit criteria');
 select is((select length(display_key) from public.inductions where is_active), 48, 'projector key is 48 hex chars');
 
 select public.create_induction('Next Year');
