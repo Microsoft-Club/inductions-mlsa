@@ -3,7 +3,7 @@
 // form-sync edge function, so both read the form the same way.
 import type { FormLayout } from './formLayout.ts';
 
-export type AnswerSection = 'general' | 'dev' | 'logikal' | 'lnd' | 'marketing';
+export type AnswerSection = 'general' | 'dev' | 'logikal' | 'lnd' | 'marketing' | 'brainees';
 
 export interface Answer {
   q: string;
@@ -74,7 +74,7 @@ export function mapRow(cells: string[], layout: FormLayout): { row: ImportRow; r
     department: '',
     batch: '',
     preferences: ['', '', '', ''],
-    answers: { general: [], dev: [], logikal: [], lnd: [], marketing: [] },
+    answers: { general: [], dev: [], logikal: [], lnd: [], marketing: [], brainees: [] },
   };
   let rawTimestamp = '';
   layout.columns.forEach((column, i) => {

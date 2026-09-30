@@ -36,6 +36,15 @@ describe('visibleSections', () => {
     expect(sections.map((s) => s.label)).toEqual(['General', 'Dev', 'L&D']);
     expect(sections[0].answers).toEqual([{ q: 'What motivated you to join Microsoft Club?', a: 'I like building things with others.' }]);
   });
+
+  it('shows the Brainees answers after Marketing, for people who answered them', () => {
+    const answered = candidateRow({
+      answers: { ...candidateRow().answers, brainees: [{ q: 'Why do you want to do research?', a: 'To find out how people learn.' }] },
+    });
+    const sections = visibleSections(answered);
+    expect(sections.map((s) => s.label)).toEqual(['General', 'Dev', 'L&D', 'Brainees']);
+    expect(sections[3].answers).toEqual([{ q: 'Why do you want to do research?', a: 'To find out how people learn.' }]);
+  });
 });
 
 describe('the application', () => {

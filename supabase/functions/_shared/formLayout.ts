@@ -90,5 +90,9 @@ export const FORM_LAYOUT: FormLayout = {
     /* 48 */ { header: 'Which is your third preference?', target: preference(3) },
     /* 49 */ { header: 'Which is your fourth preference?', target: preference(4) },
     /* 50 */ { header: 'What makes you different from other applicants — why should we choose you? Mention very briefly in 2-3 lines', target: answer('general') },
+    // Added on 30 September for the new Brainees team; earlier responses have these blank.
+    /* 51 */ { header: 'Why do you want to do research?', target: answer('brainees') },
+    /* 52 */ { header: 'Why is it easier to remember a story than a list of facts?', target: answer('brainees') },
+    /* 53 */ { header: 'Why can a child recognize a cat after seeing just a few cats, while a computer needs thousands of pictures? (dont use GPT, Claude for this. show your intuition here its fine to be wrong, maybe grab a tea think about it and then respond).', target: answer('brainees') },
   ],
 };
