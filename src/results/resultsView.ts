@@ -59,10 +59,12 @@ export function sortRows(rows: ResultRow[], sort: SortState): ResultRow[] {
 export interface Filters {
   status: CandidateStatus | 'all';
   decision: Decision | 'all';
+  /** The batch as candidates chose it on the form (e.g. "B35"), or 'all'. */
+  batch: string;
   query: string;
 }
 
-export function filterRows(rows: ResultRow[], { status, decision, query }: Filters): ResultRow[] {
+export function filterRows(rows: ResultRow[], { status, decision, batch, query }: Filters): ResultRow[] {
   const q = query.trim();
   const exactNumber = /^#?\d+$/.test(q) ? Number(q.replace('#', '')) : null;
   const reg = q.replace(/\s+/g, '').toUpperCase();
@@ -71,8 +73,20 @@ export function filterRows(rows: ResultRow[], { status, decision, query }: Filte
     (row) =>
       (status === 'all' || row.status === status) &&
       (decision === 'all' || row.decision === decision) &&
+      (batch === 'all' || row.batch === batch) &&
       (!q || row.number === exactNumber || row.reg_number.includes(reg) || row.full_name.toLocaleLowerCase().includes(name)),
   );
+}
+
+/** Each batch candidates chose on the form, once and in order (blank answers left out). */
+export function batchOptions(rows: ResultRow[]): string[] {
+  return [...new Set(rows.map((row) => row.batch).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
+
+/** "B35" → "Batch 35"; any other answer as it is. */
+export function batchLabel(batch: string): string {
+  const match = /^B(\d+)$/i.exec(batch.trim());
+  return match ? `Batch ${match[1]}` : batch;
 }
 
 /** Spreadsheets run cells starting with = + - @ as formulas; names and comments come from the public form. */
