@@ -95,6 +95,7 @@ describe('panelist, admin and results API', () => {
     const criteria = await panelistA.criteria(inductionId);
     expect(criteria.map((c) => c.key)).toEqual([
       'communication', 'confidence_attitude', 'teamwork', 'commitment', 'problem_solving', 'fit_dev', 'fit_logikal', 'fit_lnd', 'fit_marketing',
+      'fit_brainees',
     ]);
     expect(sortedKeys(criteria[0])).toEqual(['category', 'key', 'label', 'sort_order']);
 
