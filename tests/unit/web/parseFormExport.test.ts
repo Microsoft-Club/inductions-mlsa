@@ -88,8 +88,30 @@ describe('parseFormExport', () => {
     expect(result).toEqual({
       ok: false,
       error: "The columns don't match the Fall 2026 induction form. Nothing was imported.",
-      mismatches: [{ column: 5, expected: 'Registration Number', found: 'Reg No' }],
+      mismatches: [
+        { column: 5, expected: '(not in the app)', found: 'Reg No' },
+        { column: 5, expected: 'Registration Number', found: '(missing)' },
+      ],
     });
+  });
+
+  it('reads the columns in any order, matching each question by its title', () => {
+    // A responses tab rebuilt by Google puts the Brainees questions after LogiKal instead of at the end.
+    const [header, ...records] = Papa.parse<string[]>(fixture, { skipEmptyLines: 'greedy' }).data;
+    const order = header.map((_, i) => i);
+    const brainees = order.splice(51, 3);
+    order.splice(36, 0, ...brainees);
+    const reordered = Papa.unparse([header, ...records].map((cells) => order.map((i) => cells[i])));
+    expect(ok(reordered).rows).toEqual(ok(fixture).rows);
+  });
+
+  it('matches a repeated title to its copies in order', () => {
+    // "Email Address" is both the collected address (column 2) and a question (column 4). Moving the
+    // question to the end keeps the two in the same order, so each still lands in its own field.
+    const [header, ...records] = Papa.parse<string[]>(fixture, { skipEmptyLines: 'greedy' }).data;
+    const order = [...header.keys()].filter((i) => i !== 3).concat(3);
+    const moved = ok(Papa.unparse([header, ...records].map((cells) => order.map((i) => cells[i]))));
+    expect([moved.rows[0].account_email, moved.rows[0].email]).toEqual(['ali.account@example.test', 'ali.raza@example.test']);
   });
 
   it('reports a missing last column', () => {
