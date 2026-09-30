@@ -57,7 +57,8 @@ describe('ImportDialog', () => {
     const { api } = renderDialog();
     await choose(fixture.replace(',Registration Number,', ',Reg No,'));
     expect(await screen.findByRole('alert')).toHaveTextContent("The columns don't match the Fall 2026 induction form. Nothing was imported.");
-    expect(screen.getByRole('row', { name: '5 Registration Number Reg No' })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: '5 (not in the app) Reg No' })).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: '5 Registration Number (missing)' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Import/ })).toBeNull();
     expect(api.importCandidates).not.toHaveBeenCalled();
   });

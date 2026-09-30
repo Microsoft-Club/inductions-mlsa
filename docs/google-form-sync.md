@@ -20,8 +20,10 @@ Google Form → responses sheet → Apps Script ("On form submit")
   - a response that couldn't be imported because the form's questions changed
 - **The form must match the app.** The script sends the sheet's header row with every response. If
   the questions no longer match `supabase/functions/_shared/formLayout.ts`, nothing is imported and
-  the board shows a warning; nothing is filed under the wrong question. Adding, removing, renaming or
-  reordering questions, or adding columns to the responses sheet, all count as changes.
+  the board shows a warning; nothing is filed under the wrong question. Adding, removing or renaming
+  questions, or adding columns to the responses sheet, all count as changes. The order of the
+  columns doesn't matter: each question is found by its title, so a responses tab that Google rebuilds
+  in a different order (for example after the form is linked to the sheet again) still works.
 - **Import CSV still works** and is safe to repeat. Use it to catch up on anything the sync missed.
 
 ## Set it up

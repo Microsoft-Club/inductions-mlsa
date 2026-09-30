@@ -83,10 +83,13 @@ describe('handleFormSync', () => {
     header[8] = 'What brings you here?';
     const { status, body, deps: d } = await call(post({ header, values: RESPONSES[0] }));
     expect(status).toBe(422);
-    expect(body.mismatches).toEqual([{ column: 9, expected: 'What motivated you to join Microsoft Club?', found: 'What brings you here?' }]);
+    expect(body.mismatches).toEqual([
+      { column: 9, expected: '(not in the app)', found: 'What brings you here?' },
+      { column: 9, expected: 'What motivated you to join Microsoft Club?', found: '(missing)' },
+    ]);
     expect(d.syncResponse).not.toHaveBeenCalled();
     expect(d.noteProblem).toHaveBeenCalledExactlyOnceWith(
-      'A form response was not imported: the form\'s questions no longer match the app (column 9 is now "What brings you here?"). ' +
+      'A form response was not imported: the form\'s questions no longer match the app ("What brings you here?" is new, and 1 more change). ' +
         'Update the form layout in the app, then use Import CSV to catch up.',
     );
     expect(body.error).toBe(vi.mocked(d.noteProblem).mock.calls[0][0]);
@@ -94,7 +97,7 @@ describe('handleFormSync', () => {
 
   it('counts extra mismatched columns in the warning', async () => {
     const { deps: d } = await call(post({ header: [...HEADER, 'New question', 'Another'], values: [...RESPONSES[0], 'a', 'b'] }));
-    expect(d.noteProblem).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('(column 55 is now "New question", and 1 more change)'));
+    expect(d.noteProblem).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('("New question" is new, and 1 more change)'));
   });
 
   it('warns when a response has a different number of cells than the header', async () => {
@@ -103,6 +106,18 @@ describe('handleFormSync', () => {
     expect(d.noteProblem).toHaveBeenCalledExactlyOnceWith(
       'A form response was not imported: it had 40 cells but the form has 54 columns. Use Import CSV to catch up.',
     );
+  });
+
+  it('reads the questions in whatever order the sheet has them', async () => {
+    // Google rebuilds a responses tab in the form's order when the sheet is linked again.
+    const order = HEADER.map((_, i) => i);
+    const brainees = order.splice(51, 3);
+    order.splice(36, 0, ...brainees);
+    const { status, deps: d } = await call(post({ header: order.map((i) => HEADER[i]), values: order.map((i) => RESPONSES[0][i]) }));
+    expect(status).toBe(200);
+    const csv = parseFormExport(fixture);
+    if (!csv.ok) throw new Error(csv.error);
+    expect(d.syncResponse).toHaveBeenCalledExactlyOnceWith(csv.rows[0]);
   });
 
   it('reports when there is no active induction', async () => {

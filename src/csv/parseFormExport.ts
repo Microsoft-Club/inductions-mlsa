@@ -1,6 +1,6 @@
 import Papa from 'papaparse';
 import { FORM_LAYOUT, type FormLayout } from '../../supabase/functions/_shared/formLayout.ts';
-import { headerMismatches, mapRow, type HeaderMismatch, type ImportRow } from '../../supabase/functions/_shared/formRows.ts';
+import { mapRow, matchColumns, type HeaderMismatch, type ImportRow } from '../../supabase/functions/_shared/formRows.ts';
 
 export type { HeaderMismatch };
 
@@ -9,8 +9,9 @@ export type ParseResult =
   | { ok: false; error: string; mismatches: HeaderMismatch[] };
 
 /**
- * Reads a Google Forms CSV export in the browser. Stops (imports nothing) when the header row doesn't
- * match the layout or a row has the wrong number of columns. Every row is returned, including
+ * Reads a Google Forms CSV export in the browser. Columns may come in any order; each question is
+ * found by its title. Stops (imports nothing) when a question is new, renamed or missing, or a row
+ * has the wrong number of columns. Every row is returned, including
  * duplicates and rows without a reg number: import_candidates de-duplicates and flags those.
  */
 export function parseFormExport(text: string, layout: FormLayout = FORM_LAYOUT): ParseResult {
@@ -19,7 +20,7 @@ export function parseFormExport(text: string, layout: FormLayout = FORM_LAYOUT):
   const [header, ...records] = parsed.data;
   if (!header) return fail('The file is empty.');
 
-  const mismatches = headerMismatches(header, layout);
+  const { indexes, mismatches } = matchColumns(header, layout);
   if (mismatches.length > 0) {
     return fail(`The columns don't match the ${layout.name}. Nothing was imported.`, mismatches);
   }
@@ -29,10 +30,10 @@ export function parseFormExport(text: string, layout: FormLayout = FORM_LAYOUT):
   const warnings: string[] = [];
   for (const [index, cells] of records.entries()) {
     const rowNumber = index + 2; // the header is row 1
-    if (cells.length !== layout.columns.length) {
-      return fail(`Row ${rowNumber} has ${cells.length} columns; expected ${layout.columns.length}. Nothing was imported.`);
+    if (cells.length !== header.length) {
+      return fail(`Row ${rowNumber} has ${cells.length} columns; expected ${header.length}. Nothing was imported.`);
     }
-    const { row, rawTimestamp } = mapRow(cells, layout);
+    const { row, rawTimestamp } = mapRow(cells, layout, indexes);
     if (row.submitted_at === null) {
       warnings.push(
         `Row ${rowNumber} (${row.full_name || 'no name'}): the timestamp "${rawTimestamp}" can't be read, ` +

@@ -49,21 +49,40 @@ export function parseSheetsTimestamp(text: string, utcOffset: string): string | 
   return `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}:${pad(second)}${utcOffset}`;
 }
 
-/** Every header cell that differs from the layout (none = the form still matches). */
-export function headerMismatches(header: string[], layout: FormLayout): HeaderMismatch[] {
-  const expected = layout.columns.map((column) => normalizeHeader(column.header));
+/**
+ * Where each of the layout's questions is in the file, found by its title, since a sheet's columns can
+ * come in any order (Google rebuilds a responses tab in the form's order when it is linked again). A
+ * title the layout repeats ("Email Address") matches its copies in order. The mismatches name each
+ * question the file has that the app doesn't know, then each one the app expects that the file lacks;
+ * none means every answer has its place.
+ */
+export function matchColumns(header: string[], layout: FormLayout): { indexes: number[]; mismatches: HeaderMismatch[] } {
   const found = header.map(normalizeHeader);
-  const mismatches: HeaderMismatch[] = [];
-  for (let i = 0; i < Math.max(expected.length, found.length); i++) {
-    if (expected[i] !== found[i]) {
-      mismatches.push({ column: i + 1, expected: expected[i] ?? '(no column)', found: found[i] ?? '(missing)' });
-    }
-  }
-  return mismatches;
+  const used = new Set<number>();
+  const indexes = layout.columns.map((column) => {
+    const title = normalizeHeader(column.header);
+    const at = found.findIndex((text, i) => text === title && !used.has(i));
+    if (at >= 0) used.add(at);
+    return at;
+  });
+  const mismatches: HeaderMismatch[] = [
+    ...found.flatMap((text, i) => (used.has(i) ? [] : [{ column: i + 1, expected: '(not in the app)', found: text }])),
+    ...layout.columns.flatMap((column, i) =>
+      indexes[i] >= 0 ? [] : [{ column: i + 1, expected: normalizeHeader(column.header), found: '(missing)' }],
+    ),
+  ];
+  return { indexes, mismatches };
 }
 
-/** One response's cells → an import row. `rawTimestamp` is the Timestamp cell, for warnings. */
-export function mapRow(cells: string[], layout: FormLayout): { row: ImportRow; rawTimestamp: string } {
+/**
+ * One response's cells → an import row. `indexes` says which cell holds each layout column (from
+ * matchColumns); by default the cells are in the layout's order. `rawTimestamp` is the Timestamp cell.
+ */
+export function mapRow(
+  cells: string[],
+  layout: FormLayout,
+  indexes: number[] = layout.columns.map((_, i) => i),
+): { row: ImportRow; rawTimestamp: string } {
   const row: ImportRow = {
     submitted_at: null,
     reg_number: '',
@@ -78,7 +97,7 @@ export function mapRow(cells: string[], layout: FormLayout): { row: ImportRow; r
   };
   let rawTimestamp = '';
   layout.columns.forEach((column, i) => {
-    const value = (cells[i] ?? '').trim();
+    const value = (cells[indexes[i]] ?? '').trim();
     const target = column.target;
     if (target.kind === 'answer') {
       row.answers[target.section].push({ q: normalizeHeader(column.header), a: value });
