@@ -94,14 +94,14 @@ describe('handleFormSync', () => {
 
   it('counts extra mismatched columns in the warning', async () => {
     const { deps: d } = await call(post({ header: [...HEADER, 'New question', 'Another'], values: [...RESPONSES[0], 'a', 'b'] }));
-    expect(d.noteProblem).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('(column 52 is now "New question", and 1 more change)'));
+    expect(d.noteProblem).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('(column 55 is now "New question", and 1 more change)'));
   });
 
   it('warns when a response has a different number of cells than the header', async () => {
     const { status, deps: d } = await call(post({ header: HEADER, values: RESPONSES[0].slice(0, 40) }));
     expect(status).toBe(422);
     expect(d.noteProblem).toHaveBeenCalledExactlyOnceWith(
-      'A form response was not imported: it had 40 cells but the form has 51 columns. Use Import CSV to catch up.',
+      'A form response was not imported: it had 40 cells but the form has 54 columns. Use Import CSV to catch up.',
     );
   });
 

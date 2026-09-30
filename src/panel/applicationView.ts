@@ -6,9 +6,10 @@ export const SECTION_LABELS: Record<AnswerSection, string> = {
   logikal: 'LogiKal',
   lnd: 'L&D',
   marketing: 'Marketing',
+  brainees: 'Brainees',
 };
 
-const SECTION_ORDER: AnswerSection[] = ['general', 'dev', 'logikal', 'lnd', 'marketing'];
+const SECTION_ORDER: AnswerSection[] = ['general', 'dev', 'logikal', 'lnd', 'marketing', 'brainees'];
 
 export interface VisibleSection {
   key: AnswerSection;

@@ -1,3 +1,4 @@
+import Papa from 'papaparse';
 import { describe, expect, it } from 'vitest';
 import fixture from '../../../fixtures/form-export-fake.csv?raw';
 import { FORM_LAYOUT } from '../../../supabase/functions/_shared/formLayout.ts';
@@ -55,6 +56,8 @@ describe('parseFormExport', () => {
     });
     expect(ali.answers.dev.map((x) => x.a)).toEqual(['Ali dev 1', 'Ali dev 2', 'Ali dev 3', 'Ali dev 4', 'Ali dev 5', 'Ali dev 6', 'Ali dev 7']);
     expect([ali.answers.logikal.length, ali.answers.lnd.length, ali.answers.marketing.length]).toEqual([6, 4, 6]);
+    expect(ali.answers.brainees.map((x) => x.a)).toEqual(['Ali brainees 1', 'Ali brainees 2', 'Ali brainees 3']);
+    expect(ali.answers.brainees[0].q).toBe('Why do you want to do research?');
     expect(ali.answers.logikal[1].q).toBe('Which parts of LogiKal interest you most? Select up to 2');
 
     // Byte-for-byte names, multi-line answers with commas and quotes, and messy reg numbers.
@@ -66,6 +69,7 @@ describe('parseFormExport', () => {
     expect(zara.full_name).toBe("Zara O'Brien-Khan");
     expect(zara.submitted_at).toBe('2026-09-21T09:05:10+05:00');
     expect(zara.answers.dev.every((x) => x.a === '')).toBe(true);
+    expect(zara.answers.brainees.every((x) => x.a === '')).toBe(true); // answered before the Brainees questions existed
 
     // Duplicates and missing reg numbers are passed through; the database flags them.
     expect(aliAgain.reg_number).toBe('2099101');
@@ -89,13 +93,12 @@ describe('parseFormExport', () => {
   });
 
   it('reports a missing last column', () => {
-    const lines = fixture.split('\r\n').filter(Boolean);
-    const header = lines[0].slice(0, lines[0].lastIndexOf(','));
-    const result = parseFormExport([header].join('\r\n'));
+    const [header] = Papa.parse<string[]>(fixture).data; // the last header cell has commas inside quotes
+    const result = parseFormExport(Papa.unparse([header.slice(0, -1)]));
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.mismatches).toEqual([
-      { column: 51, expected: FORM_LAYOUT.columns[50].header, found: '(missing)' },
+      { column: 54, expected: FORM_LAYOUT.columns[53].header, found: '(missing)' },
     ]);
   });
 
@@ -105,7 +108,7 @@ describe('parseFormExport', () => {
     expect(parseFormExport(header)).toEqual({ ok: false, error: 'The file has no responses.', mismatches: [] });
     expect(parseFormExport(header + '\r\n9/20/2026 10:15:02,a@example.test,Short Row')).toEqual({
       ok: false,
-      error: 'Row 2 has 3 columns; expected 51. Nothing was imported.',
+      error: 'Row 2 has 3 columns; expected 54. Nothing was imported.',
       mismatches: [],
     });
   });

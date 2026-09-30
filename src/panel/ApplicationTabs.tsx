@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react';
 import type { Candidate } from '../lib/types.ts';
 import { visibleSections } from './applicationView.ts';
 
-/** General · Dev · LogiKal · L&D · Marketing · Contact, hiding sections and questions left blank. */
+/** General · Dev · LogiKal · L&D · Marketing · Brainees · Contact, hiding sections and questions left blank. */
 export function ApplicationTabs({ candidate }: { candidate: Candidate }) {
   const sections = visibleSections(candidate);
   const tabs = [...sections.map((s) => ({ key: s.key as string, label: s.label })), { key: 'contact', label: 'Contact' }];
