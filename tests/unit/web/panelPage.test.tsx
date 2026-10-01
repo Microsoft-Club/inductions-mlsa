@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, NETWORK_ERROR, type Api } from '../../../src/lib/api.ts';
 import type { BoardSnapshot, MyEvaluationWithInterview, PanelInterview, Recommendation } from '../../../src/lib/types.ts';
 import { chatDraftKey, loadChatDraft, saveChatDraft } from '../../../src/panel/chatDrafts.ts';
-import { board, boardPanel, candidateRow, criteriaList, interview, lane, profile } from './fixtures.ts';
+import { board, boardPanel, candidateRow, criteriaList, ended, interview, lane, profile } from './fixtures.ts';
 import { fakeApi, fakeAuth, renderApp, type FakeApi } from './helpers.tsx';
 
 const me = { id: 'u-panelist', display_name: 'Test panelist' };
@@ -65,6 +65,32 @@ describe('the panelist screen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'End interview' }));
     expect(api.endInterview).toHaveBeenCalledWith('i7');
     confirm.mockRestore();
+  });
+
+  it('after End, unlocks Ready for next candidate 15 seconds after the interview ended', async () => {
+    const justEnded = { ...ended(7, 'Sara Ahmed', null), ended_at: new Date().toISOString() };
+    await openPanel({ boardSnapshot: vi.fn(async () => boardWithMe({ current: null, last_ended: justEnded })) });
+    expect(await screen.findByText((_, el) => el?.tagName === 'P' && el.textContent === 'The interview with #7 Sara Ahmed has ended.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Ready in 1[45]s$/ })).toBeDisabled();
+  });
+
+  it('tells the queue desk the panel is ready for the next candidate', async () => {
+    const endedAWhileAgo = { ...ended(7, 'Sara Ahmed', null), ended_at: new Date(Date.now() - 20_000).toISOString() };
+    const { api } = await openPanel({ boardSnapshot: vi.fn(async () => boardWithMe({ current: null, last_ended: endedAWhileAgo })) });
+    await userEvent.click(await screen.findByRole('button', { name: 'Ready for next candidate' }));
+    expect(api.markPanelReady).toHaveBeenCalledWith('i7');
+  });
+
+  it('once ready, says the desk will send the next person in', async () => {
+    await openPanel({ boardSnapshot: vi.fn(async () => boardWithMe({ current: null, last_ended: ended(7, 'Sara Ahmed') })) });
+    expect(await screen.findByText("You're ready for the next candidate. The queue desk will send them in.")).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Ready/ })).toBeNull();
+  });
+
+  it('offers no Ready button while an interview is in progress', async () => {
+    await openPanel();
+    expect(await screen.findByRole('heading', { name: '#7 Sara Ahmed' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Ready/ })).toBeNull();
   });
 
   it('keeps the last interview open after it ends, and lists earlier ones with pending evaluations', async () => {

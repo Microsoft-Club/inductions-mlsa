@@ -117,9 +117,16 @@ test('an induction day from import to the published list', async ({ browser }, t
   await first.getByRole('button', { name: 'End interview' }).click();
   await expect(first.getByText(/^Interview ended/)).toBeVisible();
   await expect(tile.getByText('Free')).toBeVisible();
+  // The desk sees the panel wrapping up; Ready for next candidate unlocks 15 seconds after End.
+  const deskCard = qm.getByRole('region', { name: panelName });
+  await expect(deskCard.getByText('Wrapping up')).toBeVisible();
+  await expect(first.getByRole('button', { name: /^Ready in \d+s$/ })).toBeDisabled();
   await evaluate(first, 'Strong Yes', '5');
   await evaluate(second, 'Yes', '4');
   await expect(second.getByText('2 panelists have submitted')).toBeVisible();
+  await first.getByRole('button', { name: 'Ready for next candidate' }).click({ timeout: 20_000 });
+  await expect(deskCard.getByText('Ready', { exact: true })).toBeVisible();
+  await expect(second.getByText("You're ready for the next candidate. The queue desk will send them in.")).toBeVisible();
   // Each panelist's own list of the candidates they evaluated (only their own recommendation).
   await first.getByRole('tablist', { name: 'Sections', exact: true }).getByRole('tab', { name: /^Evaluated/ }).click();
   const mine = first.getByRole('region', { name: 'Candidates you evaluated' }).getByRole('listitem').filter({ hasText: `#${number} ${candidateName}` });

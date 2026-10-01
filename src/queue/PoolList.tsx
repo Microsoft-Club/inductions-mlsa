@@ -5,7 +5,7 @@ import { useApi } from '../lib/ApiProvider.tsx';
 import type { BoardPanel, BoardSnapshot, LaneEntry } from '../lib/types.ts';
 import { CandidateName, MoveButtons, SkipBadge } from './bits.tsx';
 import { NoPhotoButton, usePhotoFlow } from './PhotoFlow.tsx';
-import { freePanels, poolHint } from './queueView.ts';
+import { freePanels, notReadyConfirm, poolHint } from './queueView.ts';
 
 /** The waiting pool: everyone checked in who isn't lined up for a panel yet. */
 export function PoolList({ board }: { board: BoardSnapshot }) {
@@ -40,6 +40,7 @@ export function PoolList({ board }: { board: BoardSnapshot }) {
                     <ActionButton
                       key={panel.id}
                       variant={hinted && hint?.panelId === panel.id ? 'primary' : 'secondary'}
+                      confirm={notReadyConfirm(panel, entry.number)}
                       action={() => sendIn(entry, panel)}
                     >
                       Send in → {panel.name}

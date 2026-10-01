@@ -125,7 +125,8 @@ describe('web API layer', () => {
     board = await qm.boardSnapshot();
     const ended = board.panels.find((p) => p.id === panelId);
     expect(ended?.current).toBeNull();
-    expect(sortedKeys(ended?.last_ended)).toEqual(['candidate_id', 'ended_at', 'interview_id', 'name', 'number']);
+    expect(sortedKeys(ended?.last_ended)).toEqual(['candidate_id', 'ended_at', 'interview_id', 'name', 'number', 'ready_at']);
+    expect(ended?.last_ended?.ready_at).toBeNull(); // wrapping up until a panelist says ready
     interviewId = undefined;
 
     await expect(qm.sendIn(candidate.id, panelId)).rejects.toEqual(new ApiError(`Candidate #${candidate.number} is not waiting`));

@@ -7,10 +7,23 @@ export interface PoolHint {
   panelName: string;
 }
 
-/** A free panel with nobody lined up, paired with the first person in the pool (panels in board order). */
+export type PanelState = 'busy' | 'wrapping_up' | 'ready';
+
+/** Busy during an interview; after End it is wrapping up until one of its panelists says it is ready. */
+export function panelState(panel: BoardPanel): PanelState {
+  if (panel.current) return 'busy';
+  return panel.last_ended && panel.last_ended.ready_at === null ? 'wrapping_up' : 'ready';
+}
+
+/** What Send in asks first when the panel hasn't said it is ready; nothing once it has. */
+export function notReadyConfirm(panel: BoardPanel, number: number): string | undefined {
+  return panelState(panel) === 'wrapping_up' ? `${panel.name} hasn't said they're ready yet. Send #${number} in anyway?` : undefined;
+}
+
+/** A ready panel with nobody lined up, paired with the first person in the pool (panels in board order). */
 export function poolHint(board: BoardSnapshot): PoolHint | null {
   const first = board.pool[0];
-  const panel = board.panels.find((p) => p.current === null && p.lane.length === 0);
+  const panel = board.panels.find((p) => panelState(p) === 'ready' && p.lane.length === 0);
   return first && panel ? { candidateId: first.candidate_id, panelId: panel.id, panelName: panel.name } : null;
 }
 

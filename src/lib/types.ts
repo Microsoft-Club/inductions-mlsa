@@ -43,6 +43,8 @@ export interface LastEnded {
   number: number;
   name: string;
   ended_at: string;
+  /** When a panelist said the panel is ready for the next person; null while it is wrapping up. */
+  ready_at: string | null;
 }
 
 export interface BoardPanel {

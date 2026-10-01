@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CandidateSummary } from '../../../src/lib/types.ts';
-import { canDeletePanel, describeLocation, filterCandidates, freePanels, parseListFilter, poolHint, searchCandidates } from '../../../src/queue/queueView.ts';
-import { board, boardPanel, interview, lane } from './fixtures.ts';
+import { canDeletePanel, describeLocation, filterCandidates, freePanels, notReadyConfirm, panelState, parseListFilter, poolHint, searchCandidates } from '../../../src/queue/queueView.ts';
+import { board, boardPanel, ended, interview, lane } from './fixtures.ts';
 
 const candidate = (number: number, full_name: string, status: CandidateSummary['status'], reg_number = `2025${number}`): CandidateSummary => ({
   id: `c${number}`,
@@ -23,9 +23,32 @@ describe('poolHint', () => {
     expect(poolHint(b)).toEqual({ candidateId: 'c20', panelId: 'p3', panelName: 'Panel 3' });
   });
 
+  it('skips a panel that is still wrapping up its last interview', () => {
+    const b = board({
+      panels: [boardPanel('p2', 'Panel 2', { last_ended: ended(6, 'Omar', null) }), boardPanel('p3', 'Panel 3', { last_ended: ended(5, 'Hina') })],
+    });
+    expect(poolHint(b)).toEqual({ candidateId: 'c20', panelId: 'p3', panelName: 'Panel 3' });
+  });
+
   it('has no hint when every free panel has someone lined up, or the pool is empty', () => {
     expect(poolHint(board())).toBeNull();
     expect(poolHint(board({ panels: [boardPanel('p3', 'Panel 3')], pool: [] }))).toBeNull();
+  });
+});
+
+describe('panelState and notReadyConfirm', () => {
+  it('is busy during an interview, wrapping up after End until a panelist says ready, then ready', () => {
+    expect(panelState(boardPanel('p1', 'Panel 1', { current: interview(7, 'Sara') }))).toBe('busy');
+    expect(panelState(boardPanel('p1', 'Panel 1', { last_ended: ended(6, 'Omar', null) }))).toBe('wrapping_up');
+    expect(panelState(boardPanel('p1', 'Panel 1', { last_ended: ended(6, 'Omar') }))).toBe('ready');
+    expect(panelState(boardPanel('p1', 'Panel 1'))).toBe('ready'); // nobody interviewed yet
+  });
+
+  it('asks before sending someone in to a panel that has not said it is ready', () => {
+    expect(notReadyConfirm(boardPanel('p2', 'Panel 2', { last_ended: ended(6, 'Omar', null) }), 12)).toBe(
+      "Panel 2 hasn't said they're ready yet. Send #12 in anyway?",
+    );
+    expect(notReadyConfirm(boardPanel('p2', 'Panel 2', { last_ended: ended(6, 'Omar') }), 12)).toBeUndefined();
   });
 });
 

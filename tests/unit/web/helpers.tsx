@@ -47,6 +47,7 @@ export function fakeApi(overrides: Partial<Api> = {}): FakeApi {
     undoSendIn: vi.fn(async () => {}),
     endInterview: vi.fn(async () => {}),
     reopenInterview: vi.fn(async () => {}),
+    markPanelReady: vi.fn(async () => {}),
     addPanel: vi.fn(async () => 'p-new'),
     deletePanel: vi.fn(async () => {}),
     importCandidates: vi.fn(async () => ({ added: 0, updated: 0, flagged: [] })),

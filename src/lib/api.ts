@@ -65,6 +65,8 @@ export interface Api {
   undoSendIn(interviewId: string): Promise<void>;
   endInterview(interviewId: string): Promise<void>;
   reopenInterview(interviewId: string): Promise<void>;
+  /** After End: tells the queue desk the panel is ready for the next person (15 seconds after End at the earliest). */
+  markPanelReady(interviewId: string): Promise<void>;
   /** Returns the new panel's id. */
   addPanel(): Promise<string>;
   deletePanel(panelId: string): Promise<void>;
@@ -216,6 +218,7 @@ export function createApi(
     undoSendIn: (interviewId) => rpc<void>('undo_send_in', { p_interview_id: interviewId }),
     endInterview: (interviewId) => rpc<void>('end_interview', { p_interview_id: interviewId }),
     reopenInterview: (interviewId) => rpc<void>('reopen_interview', { p_interview_id: interviewId }),
+    markPanelReady: (interviewId) => rpc<void>('mark_panel_ready', { p_interview_id: interviewId }),
     addPanel: () => rpc<string>('add_panel'),
     deletePanel: (panelId) => rpc<void>('delete_panel', { p_panel_id: panelId }),
     importCandidates: (rows) => rpc<ImportResult>('import_candidates', { p_rows: rows }, importTimeoutMs),

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DISABLED_NOTICE } from '../../../src/auth/AuthProvider.tsx';
 import { ApiError } from '../../../src/lib/api.ts';
 import { notAllowed } from '../../../src/lib/notAllowed.ts';
-import { board, boardPanel, interview } from './fixtures.ts';
+import { board, boardPanel, ended, interview } from './fixtures.ts';
 import { fakeApi, fakeAuth, renderApp } from './helpers.tsx';
 
 const queueManager = () => fakeAuth({ signedInAs: { id: 'u-queue', username: 'queue', display_name: 'Queue', role: 'queue_manager', is_active: true, current_panel_id: null } });
@@ -45,6 +45,21 @@ describe('QueuePage', () => {
     expect(within(second).getByRole('button', { name: 'Send in → Panel 3' })).not.toHaveClass('bg-brand-600');
 
     await userEvent.click(within(first).getByRole('button', { name: 'Send in → Panel 3' }));
+    expect(api.sendIn).toHaveBeenCalledWith('c20', 'p3');
+  });
+
+  it('asks before sending someone from the pool in to a panel that is still wrapping up', async () => {
+    const api = fakeApi({
+      boardSnapshot: vi.fn(async () =>
+        board({ panels: [boardPanel('p1', 'Panel 1', { is_default: true, current: interview(7, 'Sara Ahmed') }), boardPanel('p3', 'Panel 3', { last_ended: ended(6, 'Omar', null) })] }),
+      ),
+    });
+    await openQueue(api);
+    const [first] = within(screen.getByRole('list', { name: 'Waiting pool' })).getAllByRole('listitem');
+    expect(within(first).getByRole('button', { name: 'Send in → Panel 3' })).not.toHaveClass('bg-brand-600'); // no hint: not ready
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await userEvent.click(within(first).getByRole('button', { name: 'Send in → Panel 3' }));
+    expect(confirm).toHaveBeenCalledWith("Panel 3 hasn't said they're ready yet. Send #20 in anyway?");
     expect(api.sendIn).toHaveBeenCalledWith('c20', 'p3');
   });
 

@@ -44,12 +44,14 @@ describe('createApi', () => {
     await api.importCandidates([]);
     await api.dismissFormWarning('w1');
     await api.removeFromPanel('u1');
+    await api.markPanelReady('i1');
     expect(rpc.mock.calls).toEqual([
       ['send_in', { p_candidate_id: 'c1', p_panel_id: 'p1' }],
       ['move_candidate', { p_candidate_id: 'c1', p_panel_id: null, p_position: null }],
       ['import_candidates', { p_rows: [] }],
       ['dismiss_form_warning', { p_id: 'w1' }],
       ['remove_from_panel', { p_user_id: 'u1' }],
+      ['mark_panel_ready', { p_interview_id: 'i1' }],
     ]);
   });
 
