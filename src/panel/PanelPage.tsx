@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useAuth } from '../auth/AuthProvider.tsx';
 import { ActionButton, buttonClasses } from '../components/ActionButton.tsx';
-import { ActionProvider, useRunAction } from '../components/ActionProvider.tsx';
+import { ActionProvider } from '../components/ActionProvider.tsx';
 import { ConnectionBanner } from '../components/ConnectionBanner.tsx';
 import { FullPageMessage } from '../components/FullPageMessage.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
@@ -222,31 +222,57 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
   );
 }
 
+/**
+ * Switch panel and Leave panel, right next to the panel's name, so leaving is never hidden in a menu.
+ * Leaving while this panel's interview is still on asks first.
+ */
 function PanelSwitch({ board, panel }: { board: BoardSnapshot; panel: BoardPanel }) {
   const api = useApi();
-  const run = useRunAction();
-  const [pending, setPending] = useState(false);
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const others = board.panels.filter((p) => p.id !== panel.id);
+  const current = panel.current;
 
-  async function change(value: string) {
-    setPending(true);
-    await run(() => api.setMyPanel(value || null));
-    setPending(false);
-  }
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    const onPointerDown = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('pointerdown', onPointerDown);
+    };
+  }, [open]);
 
   return (
-    <select
-      aria-label="Your panel"
-      value={panel.id}
-      disabled={pending}
-      onChange={(e) => void change(e.target.value)}
-      className="h-9 rounded-md border border-slate-300 bg-white px-2 text-sm"
-    >
-      {board.panels.map((p) => (
-        <option key={p.id} value={p.id}>
-          {p.name}
-        </option>
-      ))}
-      <option value="">Not in a panel</option>
-    </select>
+    <div ref={box} className="relative flex gap-2">
+      {others.length > 0 && (
+        <button type="button" aria-expanded={open} className={buttonClasses('secondary', 'md')} onClick={() => setOpen((o) => !o)}>
+          Switch panel
+        </button>
+      )}
+      <ActionButton
+        variant="danger"
+        size="md"
+        confirm={current ? `The interview with #${current.number} ${current.name} is still on. Leave ${panel.name} anyway?` : undefined}
+        action={() => api.setMyPanel(null)}
+      >
+        Leave panel
+      </ActionButton>
+      {open && (
+        <div role="group" aria-label="Switch to" className="absolute top-11 left-0 z-20 grid min-w-44 gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+          {others.map((p) => (
+            <ActionButton key={p.id} variant="ghost" size="md" className="justify-start" action={() => api.setMyPanel(p.id)}>
+              {p.name}
+            </ActionButton>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
