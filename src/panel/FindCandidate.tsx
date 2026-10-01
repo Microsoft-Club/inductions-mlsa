@@ -1,19 +1,26 @@
 import { useState } from 'react';
 import type { BoardSnapshot } from '../lib/types.ts';
-import { searchCandidates } from '../queue/queueView.ts';
+import { CandidateName } from '../queue/bits.tsx';
+import { LIST_LABELS } from '../queue/CandidateListDialog.tsx';
+import { describeLocation, filterCandidates, LIST_FILTERS, type ListFilter } from '../queue/queueView.ts';
 import { useCandidates } from '../queue/useCandidates.ts';
 import { ApplicationDialog } from './ApplicationDialog.tsx';
 
-/** Search any candidate and read their application (read-only, no chat or evaluation). */
+/**
+ * Every candidate in number order, narrowed by status or by number, name or reg number. Any of them
+ * opens their application, read-only (no chat or evaluation).
+ */
 export function FindCandidate({ board }: { board: BoardSnapshot }) {
   const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<ListFilter>('all');
   const [openId, setOpenId] = useState<string | null>(null);
-  const searching = query.trim() !== '';
-  const { list } = useCandidates(board, searching);
-  const results = searching && list ? searchCandidates(list, query, 8) : [];
+  const { list, error } = useCandidates(board, true);
+  const counts: Record<ListFilter, number> = { ...board.counts, all: Object.values(board.counts).reduce((a, b) => a + b, 0) };
+  const inList = list ? filterCandidates(list, filter, '') : [];
+  const shown = list ? filterCandidates(list, filter, query) : [];
 
   return (
-    <div className="relative w-full max-w-sm">
+    <div className="space-y-3">
       <input
         type="search"
         value={query}
@@ -22,26 +29,49 @@ export function FindCandidate({ board }: { board: BoardSnapshot }) {
         aria-label="Find a candidate"
         className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm focus:border-brand-600 focus:ring-2 focus:ring-brand-100 focus:outline-none"
       />
-      {searching && list && (
-        <ul className="absolute top-11 right-0 left-0 z-20 max-h-80 overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-          {results.length === 0 && <li className="px-3 py-2 text-sm text-slate-500">No candidate matches “{query.trim()}”.</li>}
-          {results.map((c) => (
-            <li key={c.id}>
-              <button
-                type="button"
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
-                onClick={() => {
-                  setOpenId(c.id);
-                  setQuery('');
-                }}
-              >
-                <span className="tabular-nums">#{c.number}</span> <bdi>{c.full_name}</bdi>
-                <span className="ml-2 text-xs text-slate-500">{c.reg_number}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="flex flex-wrap gap-1">
+        {LIST_FILTERS.map((option) => (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={option === filter}
+            onClick={() => setFilter(option)}
+            className={`rounded-md px-2.5 py-1 text-sm font-medium ${
+              option === filter ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            {LIST_LABELS[option]} <span className="tabular-nums">{counts[option]}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="max-h-[60vh] overflow-y-auto rounded-lg border border-slate-200">
+        {error ? (
+          <p role="alert" className="px-3 py-3 text-sm text-red-700">{error}</p>
+        ) : list === null ? (
+          <p className="px-3 py-3 text-sm text-slate-500">Loading the candidates…</p>
+        ) : shown.length === 0 ? (
+          <p className="px-3 py-3 text-sm text-slate-500">
+            {query.trim() ? `No candidate matches “${query.trim()}”.` : `No ${LIST_LABELS[filter].toLowerCase()} candidates.`}
+          </p>
+        ) : (
+          <ul aria-label="Candidates" className="divide-y divide-slate-100">
+            {shown.map((candidate) => (
+              <li key={candidate.id} className="px-3 py-2">
+                <button type="button" className="block max-w-full text-left text-brand-700 hover:underline" onClick={() => setOpenId(candidate.id)}>
+                  <CandidateName number={candidate.number} name={candidate.full_name} className="block font-medium" />
+                </button>
+                <p className="text-xs text-slate-500">
+                  {candidate.reg_number} · {describeLocation(board, candidate)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <p className="text-xs text-slate-500">
+        Showing {shown.length} of {inList.length}
+      </p>
       {openId && <ApplicationDialog candidateId={openId} onClose={() => setOpenId(null)} />}
     </div>
   );

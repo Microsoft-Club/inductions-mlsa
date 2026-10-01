@@ -107,6 +107,37 @@ describe('the panelist screen', () => {
     expect(within(form).getByRole('button', { name: 'Submit evaluation' })).toBeDisabled();
   });
 
+  it('lists every candidate in number order, narrowed by status or search', async () => {
+    const people = [
+      { id: 'c12', number: 12, full_name: 'Ali Raza', reg_number: '2026012', status: 'waiting' as const },
+      { id: 'c5', number: 5, full_name: 'Hina Tariq', reg_number: '2025005', status: 'registered' as const },
+      { id: 'c7', number: 7, full_name: 'Sara Ahmed', reg_number: '2025007', status: 'interviewing' as const },
+    ];
+    const { api } = await openPanel({
+      listCandidates: vi.fn(async () => people),
+      candidate: vi.fn(async (id: string) => candidateRow({ id, number: id === 'c12' ? 12 : 7, full_name: id === 'c12' ? 'Ali Raza' : 'Sara Ahmed' })),
+    });
+    await screen.findByRole('heading', { name: '#7 Sara Ahmed' });
+    await openSection('Find a candidate');
+    const list = await screen.findByRole('list', { name: 'Candidates' });
+    const names = () => within(screen.getByRole('list', { name: 'Candidates' })).queryAllByRole('button').map((b) => b.textContent);
+    expect(names()).toEqual(['#5 Hina Tariq', '#7 Sara Ahmed', '#12 Ali Raza']);
+    expect(list).toHaveTextContent('2025005 · Not checked in');
+    expect(screen.getByText('Showing 3 of 3')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /^Waiting/ }));
+    expect(names()).toEqual(['#12 Ali Raza']);
+    await userEvent.click(screen.getByRole('button', { name: /^All/ }));
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Find a candidate' }), 'sara');
+    expect(names()).toEqual(['#7 Sara Ahmed']);
+    expect(screen.getByText('Showing 1 of 3')).toBeInTheDocument();
+
+    await userEvent.clear(screen.getByRole('searchbox', { name: 'Find a candidate' }));
+    await userEvent.click(within(screen.getByRole('list', { name: 'Candidates' })).getByRole('button', { name: '#12 Ali Raza' }));
+    expect(await screen.findByRole('dialog', { name: 'Application of #12 Ali Raza' })).toBeInTheDocument();
+    expect(api.candidate).toHaveBeenLastCalledWith('c12');
+  });
+
   it("opens any candidate's application read-only from search", async () => {
     const { api } = await openPanel({
       listCandidates: vi.fn(async () => [{ id: 'c5', number: 5, full_name: 'Hina Tariq', reg_number: '2025005', status: 'registered' as const }]),
