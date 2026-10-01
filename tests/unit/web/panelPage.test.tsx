@@ -90,13 +90,38 @@ describe('the panelist screen', () => {
     expect(await screen.findByRole('heading', { name: '#7 Sara Ahmed' })).toBeInTheDocument();
   });
 
-  it('switches panel from the header', async () => {
+  it('switches panel from the header, offering only the other panels', async () => {
     const { api } = await openPanel();
     await screen.findByRole('heading', { name: '#7 Sara Ahmed' });
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Your panel' }), 'Panel 2');
-    expect(api.setMyPanel).toHaveBeenCalledWith('p2');
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Your panel' }), 'Not in a panel');
-    expect(api.setMyPanel).toHaveBeenLastCalledWith(null);
+    const switchButton = screen.getByRole('button', { name: 'Switch panel' });
+    expect(switchButton).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(switchButton);
+    const others = screen.getByRole('group', { name: 'Switch to' });
+    expect(within(others).getAllByRole('button').map((b) => b.textContent)).toEqual(['Panel 2']);
+    await userEvent.click(within(others).getByRole('button', { name: 'Panel 2' }));
+    expect(api.setMyPanel).toHaveBeenCalledExactlyOnceWith('p2');
+  });
+
+  it('leaves the panel from the header, asking first while an interview is on', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    const { api } = await openPanel();
+    await screen.findByRole('heading', { name: '#7 Sara Ahmed' });
+    await userEvent.click(screen.getByRole('button', { name: 'Leave panel' }));
+    expect(confirm).toHaveBeenLastCalledWith('The interview with #7 Sara Ahmed is still on. Leave Panel 1 anyway?');
+    expect(api.setMyPanel).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Leave panel' }));
+    expect(api.setMyPanel).toHaveBeenCalledExactlyOnceWith(null);
+    confirm.mockRestore();
+  });
+
+  it('leaves a quiet panel without asking', async () => {
+    const confirm = vi.spyOn(window, 'confirm');
+    const { api } = await openPanel({ boardSnapshot: vi.fn(async () => boardWithMe({ current: null })) });
+    await screen.findByRole('heading', { level: 1, name: 'Panel 1' });
+    await userEvent.click(screen.getByRole('button', { name: 'Leave panel' }));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(api.setMyPanel).toHaveBeenCalledExactlyOnceWith(null);
+    confirm.mockRestore();
   });
 
   it('locks evaluations once results are published', async () => {

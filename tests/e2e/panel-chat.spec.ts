@@ -26,10 +26,13 @@ async function openPanel(browser: Browser, panelName: string, viewport: { width:
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
   const chooser = page.getByRole('heading', { name: 'Which panel are you sitting in?' });
-  const select = page.getByRole('combobox', { name: 'Your panel' });
-  await expect(chooser.or(select)).toBeVisible();
+  const seated = page.getByRole('button', { name: 'Leave panel' });
+  await expect(chooser.or(seated)).toBeVisible();
   if (await chooser.isVisible()) await page.getByRole('button', { name: panelName, exact: true }).click();
-  else if ((await select.inputValue()) !== panelId) await select.selectOption({ label: panelName });
+  else if (!(await page.getByRole('heading', { level: 1, name: panelName }).isVisible())) {
+    await page.getByRole('button', { name: 'Switch panel' }).click();
+    await page.getByRole('group', { name: 'Switch to' }).getByRole('button', { name: panelName, exact: true }).click();
+  }
   await expect(page.getByRole('heading', { level: 1, name: panelName })).toBeVisible();
   return page;
 }

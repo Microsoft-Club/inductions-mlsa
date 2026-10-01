@@ -32,10 +32,13 @@ async function signIn(browser: Browser, username: string, path: string): Promise
 
 async function joinPanel(page: Page, name: string): Promise<void> {
   const chooser = page.getByRole('heading', { name: 'Which panel are you sitting in?' });
-  const select = page.getByRole('combobox', { name: 'Your panel' });
-  await expect(chooser.or(select)).toBeVisible();
+  const seated = page.getByRole('button', { name: 'Leave panel' });
+  await expect(chooser.or(seated)).toBeVisible();
   if (await chooser.isVisible()) await page.getByRole('button', { name, exact: true }).click();
-  else await select.selectOption({ label: name });
+  else if (!(await page.getByRole('heading', { level: 1, name }).isVisible())) {
+    await page.getByRole('button', { name: 'Switch panel' }).click();
+    await page.getByRole('group', { name: 'Switch to' }).getByRole('button', { name, exact: true }).click();
+  }
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
 }
 
