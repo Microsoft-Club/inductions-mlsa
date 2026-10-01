@@ -106,6 +106,8 @@ export interface Api {
   evaluationsExport(): Promise<EvaluationExportRow[]>;
   setDecision(candidateId: string, decision: Decision): Promise<void>;
   setResultsPublished(published: boolean): Promise<void>;
+  /** Takes someone out of the panel they are sitting in (for people who forgot to leave). */
+  removeFromPanel(userId: string): Promise<void>;
 
   // Anyone
   publishedResults(): Promise<PublishedResult[]>;
@@ -222,6 +224,7 @@ export function createApi(
     subscribeDisplay: (key) => broadcastSubscriber(client, `display:${key}`, false),
 
     setMyPanel: (panelId) => rpc<void>('set_my_panel', { p_panel_id: panelId }),
+    removeFromPanel: (userId) => rpc<void>('remove_from_panel', { p_user_id: userId }),
     async candidate(candidateId) {
       const row = await send<Candidate | null>((signal) =>
         client.from('candidates').select(CANDIDATE_COLUMNS).eq('id', candidateId).abortSignal(signal).maybeSingle(),
