@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type Api } from '../../../src/lib/api.ts';
 import { generatePassword } from '../../../src/admin/password.ts';
-import { profile } from './fixtures.ts';
+import { board, boardPanel, interview, profile } from './fixtures.ts';
 import { fakeApi, fakeAuth, renderApp } from './helpers.tsx';
 
 // Real accounts have UUID ids, and the admin-users checks insist on them.
@@ -191,6 +191,33 @@ describe('the admin page', () => {
     expect(api.addPanel).toHaveBeenCalled();
     await userEvent.click(within(panels).getByRole('button', { name: 'Delete Panel 2' }));
     expect(api.deletePanel).toHaveBeenCalledWith('p2');
+  });
+
+  it('shows who is sitting in each panel and removes someone, asking first while an interview is on', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { api } = await openAdmin({
+      boardSnapshot: vi.fn(async () =>
+        board({
+          panels: [
+            boardPanel('p1', 'Panel 1', { is_default: true, current: interview(7, 'Sara Ahmed'), panelists: [{ id: 'u1', display_name: 'Hamza' }, { id: 'u2', display_name: 'Mariam' }] }),
+            boardPanel('p2', 'Panel 2', { is_default: true, panelists: [{ id: 'u3', display_name: 'Omar' }] }),
+          ],
+        }),
+      ),
+    });
+    const panels = screen.getByRole('region', { name: 'Panels' });
+    const panel1 = await within(panels).findByRole('list', { name: 'In Panel 1' });
+    expect(within(panel1).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['HamzaRemove', 'MariamRemove']);
+
+    await userEvent.click(within(panel1).getByRole('button', { name: 'Remove Hamza from Panel 1' }));
+    expect(confirm).toHaveBeenLastCalledWith('Remove Hamza from Panel 1? The interview with #7 Sara Ahmed is still on.');
+    expect(api.removeFromPanel).toHaveBeenLastCalledWith('u1');
+
+    confirm.mockClear();
+    await userEvent.click(within(panels).getByRole('button', { name: 'Remove Omar from Panel 2' }));
+    expect(confirm).not.toHaveBeenCalled(); // nothing going on in Panel 2
+    expect(api.removeFromPanel).toHaveBeenLastCalledWith('u3');
+    confirm.mockRestore();
   });
 
   it('disables Save while settings or a new password are being saved', async () => {

@@ -17,7 +17,7 @@ select results_eq(
             ('delete_panel'), ('dismiss_form_warning'), ('display_snapshot'), ('end_interview'), ('evaluation_count'), ('evaluations_export'),
             ('get_display_key'), ('has_role'), ('import_candidates'), ('interview_messages'),
             ('move_candidate'), ('photo_count'), ('photo_queue'), ('post_message'), ('published_results'),
-            ('record_photo'), ('regenerate_display_key'), ('reopen_interview'), ('results_table'), ('send_in'),
+            ('record_photo'), ('regenerate_display_key'), ('remove_from_panel'), ('reopen_interview'), ('results_table'), ('send_in'),
             ('server_now'), ('set_decision'), ('set_my_panel'), ('set_results_published'), ('skip_candidate'),
             ('submit_evaluation'), ('undo_check_in'), ('undo_send_in'), ('update_settings') $$,
   'signed-in staff can call only the client functions (role checks happen inside each one)');

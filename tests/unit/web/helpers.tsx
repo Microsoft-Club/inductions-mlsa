@@ -54,6 +54,7 @@ export function fakeApi(overrides: Partial<Api> = {}): FakeApi {
     subscribeBoard: vi.fn(() => topics.board.subscribe),
     subscribeDisplay: vi.fn(() => topics.display.subscribe),
     setMyPanel: vi.fn(async () => {}),
+    removeFromPanel: vi.fn(async () => {}),
     candidate: vi.fn(async (id: string) => candidateRow({ id })),
     panelInterviews: vi.fn(async () => []),
     criteria: vi.fn(async () => criteriaList()),
