@@ -9,7 +9,7 @@ import { ClockProvider } from '../../../src/lib/ClockProvider.tsx';
 import type { BoardPanel, Role } from '../../../src/lib/types.ts';
 import { PanelCard } from '../../../src/queue/PanelCard.tsx';
 import { PhotoFlowProvider } from '../../../src/queue/PhotoFlow.tsx';
-import { boardPanel, interview, lane } from './fixtures.ts';
+import { boardPanel, ended, interview, lane } from './fixtures.ts';
 import { fakeApi } from './helpers.tsx';
 
 function renderCard(panel: BoardPanel, role: Role = 'queue_manager') {
@@ -33,9 +33,9 @@ function renderCard(panel: BoardPanel, role: Role = 'queue_manager') {
 describe('PanelCard', () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it('offers Send in for the first person lined up while the panel is free', async () => {
+  it('offers Send in for the first person lined up while the panel is ready', async () => {
     const { api, card } = renderCard(boardPanel('p2', 'Panel 2', { lane: lane([12, 'Ali Raza'], [13, 'Hina']) }));
-    expect(within(card).getByText('Free')).toBeInTheDocument();
+    expect(within(card).getByText('Ready')).toBeInTheDocument();
     expect(within(card).getAllByRole('button', { name: /^Send #\d+ in/ })).toHaveLength(1);
 
     await userEvent.click(within(card).getByRole('button', { name: 'Send #12 in to Panel 2' }));
@@ -68,11 +68,33 @@ describe('PanelCard', () => {
   it('offers Reopen for the last interview while the panel is free', async () => {
     const { api, card } = renderCard(
       boardPanel('p1', 'Panel 1', {
-        last_ended: { interview_id: 'i6', candidate_id: 'c6', number: 6, name: 'Omar', ended_at: '2026-09-26T09:40:00Z' },
+        last_ended: ended(6, 'Omar'),
       }),
     );
     await userEvent.click(within(card).getByRole('button', { name: 'Reopen the interview with #6' }));
     expect(api.reopenInterview).toHaveBeenCalledWith('i6');
+  });
+
+  it('shows a panel wrapping up after End, and asks before sending someone in anyway', async () => {
+    const { api, card } = renderCard(boardPanel('p2', 'Panel 2', { last_ended: ended(6, 'Omar', null), lane: lane([12, 'Ali Raza']) }));
+    expect(within(card).getByText('Wrapping up')).toBeInTheDocument();
+    expect(within(card).queryByText('Ready')).toBeNull();
+    expect(card).toHaveTextContent(/Ended [\d:]+ ago/);
+
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    await userEvent.click(within(card).getByRole('button', { name: 'Send #12 in to Panel 2' }));
+    expect(confirm).toHaveBeenCalledWith("Panel 2 hasn't said they're ready yet. Send #12 in anyway?");
+    expect(api.sendIn).not.toHaveBeenCalled(); // cancelled
+    await userEvent.click(within(card).getByRole('button', { name: 'Send #12 in to Panel 2' }));
+    expect(api.sendIn).toHaveBeenCalledWith('c12', 'p2');
+  });
+
+  it('sends in without asking once the panel is ready', async () => {
+    const { api, card } = renderCard(boardPanel('p2', 'Panel 2', { last_ended: ended(6, 'Omar'), lane: lane([12, 'Ali Raza']) }));
+    const confirm = vi.spyOn(window, 'confirm');
+    await userEvent.click(within(card).getByRole('button', { name: 'Send #12 in to Panel 2' }));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(api.sendIn).toHaveBeenCalledWith('c12', 'p2');
   });
 
   it('moves people within the lane, skips them, and sends them back to the top of the pool', async () => {

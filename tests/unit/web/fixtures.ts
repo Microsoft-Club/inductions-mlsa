@@ -8,6 +8,7 @@ import type {
   CurrentInterview,
   DisplaySnapshot,
   LaneEntry,
+  LastEnded,
   PhotoQueueEntry,
   Profile,
   ResultRow,
@@ -31,6 +32,11 @@ export function lane(...people: Array<[number, string]>): LaneEntry[] {
 
 export function interview(number: number, name: string, startedAt = '2026-09-26T09:50:00Z'): CurrentInterview {
   return { interview_id: `i${number}`, candidate_id: `c${number}`, number, name, reg_number: reg(number), started_at: startedAt };
+}
+
+/** The panel's last ended interview; ready_at null means the panel is still wrapping up. */
+export function ended(number: number, name: string, readyAt: string | null = '2026-09-26T09:41:00Z'): LastEnded {
+  return { interview_id: `i${number}`, candidate_id: `c${number}`, number, name, ended_at: '2026-09-26T09:40:00Z', ready_at: readyAt };
 }
 
 export function boardPanel(id: string, name: string, overrides: Partial<BoardPanel> = {}): BoardPanel {

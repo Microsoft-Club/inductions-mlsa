@@ -13,6 +13,7 @@ import { FindCandidate } from './FindCandidate.tsx';
 import { InterviewWorkspace } from './InterviewWorkspace.tsx';
 import { parseSection, SectionTabs, sectionPanelId, sectionTabId, YourNumbers, type Section } from './PanelistSections.tsx';
 import { evaluatedList, myPanel, panelistStats, recentList, shownInterview } from './panelView.ts';
+import { ReadyForNext } from './ReadyForNext.tsx';
 import { RecentInterviews } from './RecentInterviews.tsx';
 import { useStrandedMessages } from './useStrandedMessages.ts';
 
@@ -159,6 +160,8 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
           </button>
         )}
       </div>
+
+      <ReadyForNext panel={panel} />
 
       <YourNumbers stats={stats} />
 

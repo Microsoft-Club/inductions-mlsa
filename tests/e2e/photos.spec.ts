@@ -119,7 +119,14 @@ test('photos from check-in to the panel, and deleting them all', async ({ browse
   await expect(photographer.getByText(later.full_name)).toHaveCount(0);
   await endCurrentInterview(qmApi);
 
-  // With a photo: straight in, and the panelist sees the face on the card.
+  // With a photo: straight in, and the panelist sees the face on the card. Nobody pressed Ready after
+  // the last interview, so the desk is asked first and sends in anyway.
+  const sendInAnyway = (number: number) =>
+    qm.once('dialog', (dialog) => {
+      expect(dialog.message()).toBe(`${panelName} hasn't said they're ready yet. Send #${number} in anyway?`);
+      void dialog.accept();
+    });
+  sendInAnyway(ready.number);
   await row(ready).getByRole('button', { name: `Send in → ${panelName}` }).click();
   await expect(panelCard).toContainText(ready.full_name);
   await expect(qm.getByRole('alertdialog', { name: 'No photo yet' })).toHaveCount(0);
@@ -128,6 +135,7 @@ test('photos from check-in to the panel, and deleting them all', async ({ browse
   await endCurrentInterview(qmApi);
 
   // Without a photo, sent anyway: the panelist sees the placeholder.
+  sendInAnyway(never.number);
   await row(never).getByRole('button', { name: `Send in → ${panelName}` }).click();
   await qm.getByRole('alertdialog', { name: 'No photo yet' }).getByRole('button', { name: 'Send without photo' }).click();
   await expect(panelCard).toContainText(never.full_name);

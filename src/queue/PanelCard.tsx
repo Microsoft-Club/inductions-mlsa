@@ -1,10 +1,18 @@
 import { ActionButton } from '../components/ActionButton.tsx';
 import { Timer } from '../components/Timer.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
+import { useClock } from '../lib/ClockProvider.tsx';
+import { elapsedMs, formatElapsed } from '../lib/clock.ts';
 import type { BoardPanel, Role } from '../lib/types.ts';
 import { CandidateName, MoveButtons, SkipBadge } from './bits.tsx';
 import { NoPhotoButton, usePhotoFlow } from './PhotoFlow.tsx';
-import { canDeletePanel } from './queueView.ts';
+import { canDeletePanel, notReadyConfirm, panelState, type PanelState } from './queueView.ts';
+
+const BADGES: Record<PanelState, { text: string; className: string }> = {
+  busy: { text: 'Busy', className: 'bg-sky-100 text-sky-800' },
+  wrapping_up: { text: 'Wrapping up', className: 'bg-amber-100 text-amber-900' },
+  ready: { text: 'Ready', className: 'bg-emerald-100 text-emerald-800' },
+};
 
 interface PanelCardProps {
   panel: BoardPanel;
@@ -16,16 +24,13 @@ export function PanelCard({ panel, targetMinutes, role }: PanelCardProps) {
   const api = useApi();
   const { sendIn } = usePhotoFlow();
   const { current, last_ended: lastEnded } = panel;
+  const state = panelState(panel);
 
   return (
     <section aria-label={panel.name} className="flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
       <header className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
         <h2 className="text-base font-semibold">{panel.name}</h2>
-        {current ? (
-          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">Busy</span>
-        ) : (
-          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">Free</span>
-        )}
+        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${BADGES[state].className}`}>{BADGES[state].text}</span>
         {canDeletePanel(panel, role) && (
           <ActionButton
             variant="ghost"
@@ -58,12 +63,22 @@ export function PanelCard({ panel, targetMinutes, role }: PanelCardProps) {
             </div>
           </div>
         ) : lastEnded ? (
-          <p className="flex flex-wrap items-center gap-1 text-sm text-slate-600">
-            Last: <CandidateName number={lastEnded.number} name={lastEnded.name} /> —
-            <ActionButton variant="ghost" label={`Reopen the interview with #${lastEnded.number}`} action={() => api.reopenInterview(lastEnded.interview_id)}>
-              Reopen
-            </ActionButton>
-          </p>
+          <>
+            {state === 'wrapping_up' && (
+              <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                <p className="font-semibold">
+                  Ended <EndedAgo endedAt={lastEnded.ended_at} /> ago
+                </p>
+                <p>Waiting for the panel to say they're ready for the next person.</p>
+              </div>
+            )}
+            <p className="flex flex-wrap items-center gap-1 text-sm text-slate-600">
+              Last: <CandidateName number={lastEnded.number} name={lastEnded.name} /> —
+              <ActionButton variant="ghost" label={`Reopen the interview with #${lastEnded.number}`} action={() => api.reopenInterview(lastEnded.interview_id)}>
+                Reopen
+              </ActionButton>
+            </p>
+          </>
         ) : null}
 
         <p className="text-sm text-slate-600">
@@ -84,7 +99,12 @@ export function PanelCard({ panel, targetMinutes, role }: PanelCardProps) {
                 </div>
                 <div className="flex flex-wrap gap-1 pl-7">
                   {entry.position === 1 && !current && (
-                    <ActionButton variant="primary" label={`Send #${entry.number} in to ${panel.name}`} action={() => sendIn(entry, panel)}>
+                    <ActionButton
+                      variant="primary"
+                      label={`Send #${entry.number} in to ${panel.name}`}
+                      confirm={notReadyConfirm(panel, entry.number)}
+                      action={() => sendIn(entry, panel)}
+                    >
                       Send in
                     </ActionButton>
                   )}
@@ -101,4 +121,10 @@ export function PanelCard({ panel, targetMinutes, role }: PanelCardProps) {
       </div>
     </section>
   );
+}
+
+/** How long ago the interview ended, on the server's clock. */
+function EndedAgo({ endedAt }: { endedAt: string }) {
+  const { nowMs, offsetMs } = useClock();
+  return <span className="tabular-nums">{formatElapsed(elapsedMs(endedAt, nowMs, offsetMs))}</span>;
 }
