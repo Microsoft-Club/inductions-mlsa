@@ -214,7 +214,7 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
 
       <div {...sectionProps('find')}>
         <div className="max-w-xl space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm text-slate-600">Search any candidate by number, name or reg number to read their application.</p>
+          <p className="text-sm text-slate-600">Every candidate, in number order. Open anyone to read their application.</p>
           <FindCandidate board={board} />
         </div>
       </div>
