@@ -23,10 +23,17 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ backend, children }: { backend: AuthBackend; children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: 'loading' });
   const latest = useRef(0); // only the newest resolution may change the state
+  // A saved session whose profile couldn't load (no network yet): try again until it can.
+  const retry = useRef<{ timer: ReturnType<typeof setTimeout> | null; attempt: number }>({ timer: null, attempt: 0 });
+  const stopRetrying = () => {
+    if (retry.current.timer) clearTimeout(retry.current.timer);
+    retry.current.timer = null;
+  };
 
   const resolve = useCallback(
     async (userId: string | null) => {
       const mine = ++latest.current;
+      stopRetrying();
       if (!userId) {
         setState((current) => (current.status === 'signed_out' ? current : { status: 'signed_out', notice: null }));
         return;
@@ -37,9 +44,16 @@ export function AuthProvider({ backend, children }: { backend: AuthBackend; chil
       } catch {
         if (mine === latest.current) {
           setState((current) => (current.status === 'loading' ? { status: 'signed_out', notice: NETWORK_ERROR } : current));
+          // The session is still good; the network isn't. A reload on flaky Wi-Fi must not mean typing the password again.
+          const wait = Math.min(2_000 * 2 ** retry.current.attempt++, 10_000);
+          retry.current.timer = setTimeout(() => {
+            retry.current.timer = null;
+            void backend.currentUserId().then(resolve, () => {});
+          }, wait);
         }
         return;
       }
+      retry.current.attempt = 0;
       if (mine !== latest.current) return;
       if (!profile || !profile.is_active) {
         setState({ status: 'signed_out', notice: DISABLED_NOTICE });
@@ -56,9 +70,16 @@ export function AuthProvider({ backend, children }: { backend: AuthBackend; chil
     const stopAuth = backend.onUserChange((userId) => void resolve(userId));
     // "Not allowed" from any action or read: the account may have just been disabled. Check again.
     const stopNotAllowed = notAllowed.subscribe(() => void backend.currentUserId().then(resolve));
+    // Waiting to retry and the network is back: don't wait.
+    const onOnline = () => {
+      if (retry.current.timer) void backend.currentUserId().then(resolve, () => {});
+    };
+    window.addEventListener('online', onOnline);
     return () => {
       stopAuth();
       stopNotAllowed();
+      window.removeEventListener('online', onOnline);
+      stopRetrying();
     };
   }, [backend, resolve]);
 

@@ -184,7 +184,7 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
             onRetryForm={() => void loadForm()}
             locked={board.induction.results_published}
             targetMinutes={board.induction.target_interview_minutes}
-            onEvaluationSubmitted={reloadEvaluations}
+            afterEvaluationSubmit={reloadEvaluations}
             boardVersion={boardVersion}
             canEnd={me.role === 'admin' || shown.inThisPanel}
           />
