@@ -57,6 +57,29 @@ npm run test:e2e          # Playwright: the whole induction day in Chromium; nee
 Each E2E run imports a few candidates ("Eesha Test …", "Chat Test …", "Photo Ready …") and leaves them in the local database;
 `npm run db:reset && npm run seed:dev` clears them.
 
+### Stress tests
+
+Heavier checks to run before an event or after a big change. They run only against the **local** stack (they
+reach the database through its Docker container) and never touch production. Each needs `npm run db:start`,
+Docker, and Chromium for Playwright (`npx playwright install chromium` on a new machine).
+
+```bash
+npm run stress:races           # conflicting actions at the same instant (two desks sending in, two panelists
+                               # pressing End or Ready, undo vs end, delete panel vs send-in, ...) plus a burst of
+                               # 260 chat sends; checks the data stays consistent. `-- 5` for 5 rounds (default 20)
+npm run stress:offline         # connection drops in real Chromium: offline, dead Wi-Fi and lost replies during
+                               # chat, End, Ready, evaluations, reloads, the desk, the projector and photos;
+                               # needs web:env and starts the dev server itself (about 8 minutes)
+npm run stress:day             # a whole induction day: 45 candidates, 3 panels x 4 panelists, random connection
+                               # drops and three live browser windows; needs web:env and `npm run dev` running
+```
+
+`stress:day` runs in a fresh induction of its own and switches back to the previous one when it ends
+(about 13 minutes; `SIM_CANDIDATES=6 SIM_MIN_S=5 SIM_MAX_S=8 npm run stress:day` for a quick run). All three
+leave their test accounts (`rc_…`, `nc_…`, `np_…`, `ds_…`) and candidates in the local database; `npm run db:reset && npm run seed:dev`
+clears them. A few "Can't reach the server" errors in `stress:races` under the chat burst can come from Node's
+HTTP client reusing a connection the local gateway closed; the test resends them as the app does.
+
 ## Accounts
 
 There is no signup. Create the first admin with
