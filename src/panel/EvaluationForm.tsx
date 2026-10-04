@@ -27,11 +27,12 @@ interface EvaluationFormProps {
   evaluationCount: number;
   /** Results are published: the server refuses changes, so the form is read-only. */
   locked: boolean;
-  onSubmitted: () => void;
+  /** After every submit, even a failed one (the server may have saved it and only the reply was lost): reload what it has. */
+  afterSubmit: () => void;
 }
 
 /** "My evaluation". Keyed by interview id by its parent, so each interview starts from its own draft. */
-export function EvaluationForm({ interviewId, userId, criteria, saved, evaluationCount, locked, onSubmitted }: EvaluationFormProps) {
+export function EvaluationForm({ interviewId, userId, criteria, saved, evaluationCount, locked, afterSubmit }: EvaluationFormProps) {
   const api = useApi();
   const toast = useToast();
   const key = draftKey(userId, interviewId);
@@ -65,11 +66,11 @@ export function EvaluationForm({ interviewId, userId, criteria, saved, evaluatio
       await api.submitEvaluation(interviewId, draft.scores, draft.recommendation as Recommendation, draft.comments.trim());
       clearDraft(key);
       toast.show('Evaluation submitted', 'success');
-      onSubmitted();
     } catch (e) {
       toast.show(errorMessage(e), 'error');
     } finally {
       setSubmitting(false);
+      afterSubmit();
     }
   }
 

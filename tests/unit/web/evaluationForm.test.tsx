@@ -12,7 +12,7 @@ import { criteriaList } from './fixtures.ts';
 import { fakeApi, type FakeApi } from './helpers.tsx';
 
 function renderForm(api: FakeApi = fakeApi(), props: { saved?: MyEvaluation; locked?: boolean; count?: number } = {}) {
-  const onSubmitted = vi.fn();
+  const afterSubmit = vi.fn();
   const view = render(
     <ApiProvider api={api}>
       <ToastProvider>
@@ -24,13 +24,13 @@ function renderForm(api: FakeApi = fakeApi(), props: { saved?: MyEvaluation; loc
             saved={props.saved}
             evaluationCount={props.count ?? 0}
             locked={props.locked ?? false}
-            onSubmitted={onSubmitted}
+            afterSubmit={afterSubmit}
           />
         </ActionProvider>
       </ToastProvider>
     </ApiProvider>,
   );
-  return { api, onSubmitted, ...view };
+  return { api, afterSubmit, ...view };
 }
 
 const choose = (group: string, option: string) => userEvent.click(within(screen.getByRole('group', { name: group })).getByRole('radio', { name: option }));
@@ -50,7 +50,7 @@ describe('EvaluationForm', () => {
   });
 
   it('sends only the scores given, leaving N/A out', async () => {
-    const { api, onSubmitted } = renderForm();
+    const { api, afterSubmit } = renderForm();
     await choose('Communication', '4');
     await choose('Teamwork', '5');
     await choose('Dev', '5');
@@ -59,7 +59,7 @@ describe('EvaluationForm', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Submit evaluation' }));
     expect(api.submitEvaluation).toHaveBeenCalledWith('i7', { communication: 4, teamwork: 5, fit_dev: 5 }, 'yes', 'Good ownership');
     expect(await screen.findByText('Evaluation submitted')).toBeInTheDocument();
-    expect(onSubmitted).toHaveBeenCalled();
+    expect(afterSubmit).toHaveBeenCalled();
   });
 
   it('keeps a draft on this device until it is submitted', async () => {
@@ -73,7 +73,7 @@ describe('EvaluationForm', () => {
     expect(screen.getByRole('textbox', { name: 'Comments (optional)' })).toHaveValue('Quiet but thoughtful');
     expect(within(screen.getByRole('group', { name: 'Overall recommendation' })).getByRole('radio', { name: 'Maybe' })).toBeChecked();
     await userEvent.click(screen.getByRole('button', { name: 'Submit evaluation' }));
-    await waitFor(() => expect(second.onSubmitted).toHaveBeenCalled());
+    await waitFor(() => expect(second.afterSubmit).toHaveBeenCalled());
     expect(localStorage.getItem(draftKey('u-panelist', 'i7'))).toBeNull();
   });
 

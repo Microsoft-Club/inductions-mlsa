@@ -310,6 +310,24 @@ describe('the candidates you evaluated', () => {
   });
 });
 
+describe('an evaluation saved by the server whose reply was lost', () => {
+  it('shows it as submitted instead of asking to submit again', async () => {
+    let saved = false;
+    await openPanel({
+      myEvaluations: vi.fn(async () => (saved ? [mine(past(7, 'Sara Ahmed', 'in_progress'), 'Panel 1')] : [])),
+      submitEvaluation: vi.fn(async () => {
+        saved = true; // the server saved it...
+        throw new ApiError(NETWORK_ERROR); // ...but the answer never arrived
+      }),
+    });
+    const form = await screen.findByRole('region', { name: 'My evaluation' });
+    await userEvent.click(within(within(form).getByRole('group', { name: 'Overall recommendation' })).getByRole('radio', { name: 'Yes' }));
+    await userEvent.click(within(form).getByRole('button', { name: 'Submit evaluation' }));
+    expect(await screen.findByText(NETWORK_ERROR)).toBeInTheDocument();
+    expect(await within(screen.getByRole('region', { name: 'My evaluation' })).findByRole('button', { name: 'Update evaluation' })).toBeInTheDocument();
+  });
+});
+
 describe('on a phone', () => {
   it('shows the newest messages when the Chat tab is opened', async () => {
     const msg = (id: string, body: string) => ({ id, interview_id: 'i7', author_id: 'u1', author_name: 'Hamza', body, created_at: '2026-09-26T09:55:00Z' });

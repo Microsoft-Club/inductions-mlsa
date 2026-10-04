@@ -26,7 +26,7 @@ interface InterviewWorkspaceProps {
   active?: boolean;
   locked: boolean;
   targetMinutes: number;
-  onEvaluationSubmitted: () => void;
+  afterEvaluationSubmit: () => void;
   /** Changes whenever the board reloads (as it does after a reconnect); a failed application load is retried then. */
   boardVersion?: string;
   /** Offer End interview: panelists only in the interview's own panel, admins anywhere. */
@@ -34,7 +34,7 @@ interface InterviewWorkspaceProps {
 }
 
 /** Application · Discussion · My evaluation for one interview. Keyed by interview id by its parent. */
-export function InterviewWorkspace({ interview, userId, criteria, evaluations, formFailed, onRetryForm, active = true, locked, targetMinutes, onEvaluationSubmitted, boardVersion, canEnd = true }: InterviewWorkspaceProps) {
+export function InterviewWorkspace({ interview, userId, criteria, evaluations, formFailed, onRetryForm, active = true, locked, targetMinutes, afterEvaluationSubmit, boardVersion, canEnd = true }: InterviewWorkspaceProps) {
   const api = useApi();
   const live = useInterviewLive(interview.id);
   const [candidate, setCandidate] = useState<Candidate | null>(null);
@@ -123,9 +123,9 @@ export function InterviewWorkspace({ interview, userId, criteria, evaluations, f
               saved={saved}
               evaluationCount={live.data?.evaluationCount ?? 0}
               locked={locked}
-              onSubmitted={() => {
+              afterSubmit={() => {
                 live.reload();
-                onEvaluationSubmitted();
+                afterEvaluationSubmit();
               }}
             />
           ) : formFailed ? (
