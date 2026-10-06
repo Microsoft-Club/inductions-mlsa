@@ -227,7 +227,7 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
 
 /**
  * Switch panel and Leave panel, right next to the panel's name, so leaving is never hidden in a menu.
- * Leaving while this panel's interview is still on asks first.
+ * Switching or leaving while this panel's interview is still on asks first: either takes you out of it.
  */
 function PanelSwitch({ board, panel }: { board: BoardSnapshot; panel: BoardPanel }) {
   const api = useApi();
@@ -235,6 +235,7 @@ function PanelSwitch({ board, panel }: { board: BoardSnapshot; panel: BoardPanel
   const box = useRef<HTMLDivElement>(null);
   const others = board.panels.filter((p) => p.id !== panel.id);
   const current = panel.current;
+  const stillOn = (then: string) => (current ? `The interview with #${current.number} ${current.name} is still on. ${then} anyway?` : undefined);
 
   useEffect(() => {
     if (!open) return;
@@ -262,7 +263,7 @@ function PanelSwitch({ board, panel }: { board: BoardSnapshot; panel: BoardPanel
       <ActionButton
         variant="danger"
         size="md"
-        confirm={current ? `The interview with #${current.number} ${current.name} is still on. Leave ${panel.name} anyway?` : undefined}
+        confirm={stillOn(`Leave ${panel.name}`)}
         action={() => api.setMyPanel(null)}
       >
         Leave panel
@@ -270,7 +271,14 @@ function PanelSwitch({ board, panel }: { board: BoardSnapshot; panel: BoardPanel
       {open && (
         <div role="group" aria-label="Switch to" className="absolute top-11 left-0 z-20 grid min-w-44 gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
           {others.map((p) => (
-            <ActionButton key={p.id} variant="ghost" size="md" className="justify-start" action={() => api.setMyPanel(p.id)}>
+            <ActionButton
+              key={p.id}
+              variant="ghost"
+              size="md"
+              className="justify-start"
+              confirm={stillOn(`Switch to ${p.name}`)}
+              action={() => api.setMyPanel(p.id)}
+            >
               {p.name}
             </ActionButton>
           ))}
