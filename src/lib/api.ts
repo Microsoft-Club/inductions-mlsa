@@ -16,6 +16,7 @@ import type {
   ImportResult,
   ImportRow,
   InductionSettings,
+  InterviewWithPanel,
   MyEvaluationWithInterview,
   PanelInterview,
   PhotoQueueEntry,
@@ -82,6 +83,8 @@ export interface Api {
   candidate(candidateId: string): Promise<Candidate>;
   /** The panel's interviews, newest first (cancelled ones left out). */
   panelInterviews(panelId: string): Promise<PanelInterview[]>;
+  /** These interviews with their panel, if they are in the induction and weren't cancelled. */
+  interviewsById(ids: string[], inductionId: string): Promise<InterviewWithPanel[]>;
   criteria(inductionId: string): Promise<Criterion[]>;
   interviewMessages(interviewId: string): Promise<ChatMessage[]>;
   /** `id` comes from the browser so a retry after a failed send can't post twice. */
@@ -244,6 +247,16 @@ export function createApi(
           .neq('status', 'cancelled')
           .order('started_at', { ascending: false })
           .limit(30)
+          .abortSignal(signal),
+      ),
+    interviewsById: (ids, inductionId) =>
+      send<InterviewWithPanel[]>((signal) =>
+        client
+          .from('interviews')
+          .select('id, status, started_at, ended_at, panel_id, panel:panels(name), candidate:candidates(id, number, full_name)')
+          .in('id', ids)
+          .eq('induction_id', inductionId)
+          .neq('status', 'cancelled')
           .abortSignal(signal),
       ),
     criteria: (inductionId) =>

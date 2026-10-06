@@ -92,6 +92,14 @@ describe('panelist, admin and results API', () => {
     expect(sortedKeys(interview)).toEqual(['candidate', 'ended_at', 'id', 'started_at', 'status']);
     expect(interview).toMatchObject({ id: interviewId, status: 'in_progress', candidate: { id: candidateId, full_name: 'Plan Three Tester' } });
 
+    // An interview remembered on the device after moving panel: looked up with its panel; unknown ids drop out.
+    const satIn = await panelistA.interviewsById([interviewId!, '00000000-0000-0000-0000-000000000000'], inductionId);
+    expect(satIn).toEqual([{
+      id: interviewId, status: 'in_progress', started_at: expect.any(String), ended_at: null, panel_id: panelId,
+      panel: { name: board.panels.find((p) => p.id === panelId)!.name },
+      candidate: { id: candidateId, number: expect.any(Number), full_name: 'Plan Three Tester' },
+    }]);
+
     const criteria = await panelistA.criteria(inductionId);
     expect(criteria.map((c) => c.key)).toEqual([
       'communication', 'confidence_attitude', 'teamwork', 'commitment', 'problem_solving', 'fit_dev', 'fit_logikal', 'fit_lnd', 'fit_marketing',

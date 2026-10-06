@@ -44,7 +44,7 @@ export function YourNumbers({ stats }: { stats: PanelistStats | null }) {
 
 interface SectionTabsProps {
   current: Section;
-  /** Interviews on this panel waiting for your evaluation (shown on Recent). */
+  /** Ended interviews waiting for your evaluation, on this panel or left on another (shown on Recent). */
   pending: number;
   /** How many you evaluated; undefined while unknown. */
   evaluated: number | undefined;
