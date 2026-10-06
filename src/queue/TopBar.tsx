@@ -18,9 +18,11 @@ interface TopBarProps {
   onShowList: (filter: ListFilter) => void;
   /** Admins can open a candidate's full form from the search results. */
   canReadForms?: boolean;
+  /** Only admins add panels. */
+  canAddPanels?: boolean;
 }
 
-export function TopBar({ board, onImport, onShowList, canReadForms = false }: TopBarProps) {
+export function TopBar({ board, onImport, onShowList, canReadForms = false, canAddPanels = false }: TopBarProps) {
   const api = useApi();
   return (
     <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
@@ -42,9 +44,11 @@ export function TopBar({ board, onImport, onShowList, canReadForms = false }: To
         <button type="button" className={buttonClasses('secondary', 'md')} onClick={onImport}>
           Import CSV
         </button>
-        <ActionButton variant="primary" size="md" action={() => api.addPanel()}>
-          + Add panel
-        </ActionButton>
+        {canAddPanels && (
+          <ActionButton variant="primary" size="md" action={() => api.addPanel()}>
+            + Add panel
+          </ActionButton>
+        )}
       </div>
     </div>
   );

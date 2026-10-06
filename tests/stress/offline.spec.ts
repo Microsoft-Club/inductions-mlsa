@@ -94,7 +94,7 @@ test.afterAll(async () => {
   for (const id of panels) await admin.api.deletePanel(id).catch(() => {});
 });
 async function panelWith(...seated: Person[]) {
-  const id = await desk.api.addPanel();
+  const id = await admin.api.addPanel();
   panels.push(id);
   for (const p of seated) await p.api.setMyPanel(id);
   return id;

@@ -6,7 +6,7 @@ import { elapsedMs, formatElapsed } from '../lib/clock.ts';
 import type { BoardPanel, Role } from '../lib/types.ts';
 import { CandidateName, MoveButtons, SkipBadge } from './bits.tsx';
 import { NoPhotoButton, usePhotoFlow } from './PhotoFlow.tsx';
-import { canDeletePanel, notReadyConfirm, panelState, type PanelState } from './queueView.ts';
+import { canManagePanels, notReadyConfirm, panelState, type PanelState } from './queueView.ts';
 
 const BADGES: Record<PanelState, { text: string; className: string }> = {
   busy: { text: 'Busy', className: 'bg-sky-100 text-sky-800' },
@@ -31,7 +31,7 @@ export function PanelCard({ panel, targetMinutes, role }: PanelCardProps) {
       <header className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
         <h2 className="text-base font-semibold">{panel.name}</h2>
         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${BADGES[state].className}`}>{BADGES[state].text}</span>
-        {canDeletePanel(panel, role) && (
+        {canManagePanels(role) && (
           <ActionButton
             variant="ghost"
             className="ml-auto"

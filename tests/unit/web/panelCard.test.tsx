@@ -114,19 +114,20 @@ describe('PanelCard', () => {
     expect(api.skipCandidate).toHaveBeenCalledWith('c12');
   });
 
-  it('lets the queue manager remove only extra panels, after confirming', async () => {
+  it('gives the queue manager no Delete panel, not even on extra panels', () => {
     renderCard(boardPanel('p1', 'Panel 1', { is_default: true }));
+    renderCard(boardPanel('p3', 'Panel 3'));
     expect(screen.queryByRole('button', { name: 'Delete panel' })).toBeNull();
+  });
+
+  it('lets an admin remove any panel, after confirming', async () => {
+    const { card: defaultCard } = renderCard(boardPanel('p1', 'Panel 1', { is_default: true }), 'admin');
+    expect(within(defaultCard).getByRole('button', { name: 'Delete panel' })).toBeInTheDocument();
 
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const { api, card } = renderCard(boardPanel('p3', 'Panel 3'));
+    const { api, card } = renderCard(boardPanel('p3', 'Panel 3'), 'admin');
     await userEvent.click(within(card).getByRole('button', { name: 'Delete panel' }));
     expect(window.confirm).toHaveBeenCalledWith('Delete Panel 3? Anyone lined up for it moves to the end of the pool.');
     expect(api.deletePanel).toHaveBeenCalledWith('p3');
-  });
-
-  it('lets an admin remove a default panel', () => {
-    const { card } = renderCard(boardPanel('p1', 'Panel 1', { is_default: true }), 'admin');
-    expect(within(card).getByRole('button', { name: 'Delete panel' })).toBeInTheDocument();
   });
 });

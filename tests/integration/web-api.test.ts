@@ -32,6 +32,7 @@ async function expectEvent(subscribe: Subscribe, poke: () => Promise<unknown>): 
 describe('web API layer', () => {
   const accountIds: string[] = [];
   let qm: Api;
+  let admin: Api;
   let panelist: Api;
   let projector: Api;
   let inductionId: string;
@@ -40,9 +41,14 @@ describe('web API layer', () => {
   let interviewId: string | undefined;
 
   beforeAll(async () => {
-    const names = { qm: uniqueName('web_qm'), panelist: uniqueName('web_pan') };
-    accountIds.push(await makeAccount(names.qm, 'queue_manager'), await makeAccount(names.panelist, 'panelist'));
+    const names = { qm: uniqueName('web_qm'), admin: uniqueName('web_admin'), panelist: uniqueName('web_pan') };
+    accountIds.push(
+      await makeAccount(names.qm, 'queue_manager'),
+      await makeAccount(names.admin, 'admin'),
+      await makeAccount(names.panelist, 'panelist'),
+    );
     qm = createApi(await signIn(names.qm));
+    admin = createApi(await signIn(names.admin));
     panelist = createApi(await signIn(names.panelist));
     projector = createApi(createClient(env.url, env.anonKey, { auth: { persistSession: false } }));
     inductionId = (await qm.boardSnapshot()).induction.id;
@@ -53,7 +59,7 @@ describe('web API layer', () => {
 
   afterAll(async () => {
     if (interviewId) await qm.endInterview(interviewId).catch(() => undefined);
-    if (panelId) await qm.deletePanel(panelId).catch(() => undefined);
+    if (panelId) await admin.deletePanel(panelId).catch(() => undefined);
     for (const id of accountIds) await service.auth.admin.deleteUser(id);
   });
 
@@ -82,7 +88,7 @@ describe('web API layer', () => {
   });
 
   it('runs a candidate through the queue and returns the shapes the screens use', async () => {
-    panelId = await qm.addPanel();
+    panelId = await admin.addPanel();
     const reg = `WEB${Date.now()}`;
     await qm.importCandidates([{
       submitted_at: new Date().toISOString(), reg_number: reg, full_name: 'Web Api Tester', email: '', account_email: '',
@@ -130,7 +136,7 @@ describe('web API layer', () => {
     interviewId = undefined;
 
     await expect(qm.sendIn(candidate.id, panelId)).rejects.toEqual(new ApiError(`Candidate #${candidate.number} is not waiting`));
-    await qm.deletePanel(panelId);
+    await admin.deletePanel(panelId);
     panelId = undefined;
   });
 
@@ -138,8 +144,9 @@ describe('web API layer', () => {
     let heard = 0;
     const stop = notAllowed.subscribe(() => heard++);
     await expect(panelist.addPanel()).rejects.toEqual(new ApiError(NOT_ALLOWED));
+    await expect(qm.addPanel()).rejects.toEqual(new ApiError(NOT_ALLOWED)); // only admins add panels
     stop();
-    expect(heard).toBe(1);
+    expect(heard).toBe(2);
     expect(Date.parse(await projector.serverNow())).not.toBeNaN();
   });
 

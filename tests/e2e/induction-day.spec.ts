@@ -59,7 +59,7 @@ test('an induction day from import to the published list', async ({ browser }, t
   const csvPath = testInfo.outputPath('responses.csv');
   writeExport(csvPath);
 
-  // Queue manager: import, add a panel of our own, check the candidate in and line them up.
+  // Queue manager: import, check the candidate in and line them up for a panel of our own.
   const qm = await signIn(browser, 'queue', '/queue');
   await qm.getByRole('button', { name: 'Import CSV' }).click();
   await qm.getByLabel('CSV file').setInputFiles(csvPath);
@@ -67,10 +67,16 @@ test('an induction day from import to the published list', async ({ browser }, t
   await expect(qm.getByText('Added 1 · Updated 0')).toBeVisible();
   await qm.getByRole('button', { name: 'Done' }).click();
 
-  const panelsBefore = await qm.getByRole('region', { name: /^Panel \d+$/ }).count();
-  await qm.getByRole('button', { name: '+ Add panel' }).click();
-  await expect(qm.getByRole('region', { name: /^Panel \d+$/ })).toHaveCount(panelsBefore + 1);
-  panelName = (await qm.getByRole('region', { name: /^Panel \d+$/ }).last().getAttribute('aria-label'))!;
+  // Only admins add panels; the desk sees the new one appear. It takes the lowest free number, so
+  // it is found by name rather than by position.
+  await expect(qm.getByRole('button', { name: '+ Add panel' })).toHaveCount(0);
+  const deskPanels = qm.getByRole('region', { name: /^Panel \d+$/ });
+  const panelNames = () => deskPanels.evaluateAll((sections) => sections.map((s) => s.getAttribute('aria-label')!));
+  const panelsBefore = await panelNames();
+  const admin = await signIn(browser, 'admin', '/admin');
+  await admin.getByRole('region', { name: 'Panels' }).getByRole('button', { name: '+ Add panel' }).click();
+  await expect(deskPanels).toHaveCount(panelsBefore.length + 1);
+  panelName = (await panelNames()).find((name) => !panelsBefore.includes(name))!;
 
   await qm.getByRole('searchbox', { name: 'Search candidates' }).fill(reg);
   const result = qm.getByRole('list', { name: 'Search results' }).getByRole('listitem').filter({ hasText: reg });
@@ -81,7 +87,6 @@ test('an induction day from import to the published list', async ({ browser }, t
   await qm.getByRole('combobox', { name: `Line up #${number} for a panel`, exact: true }).selectOption({ label: panelName });
 
   // Projector (no login), from the admin's link.
-  const admin = await signIn(browser, 'admin', '/admin');
   const projectorLink = (await admin.getByRole('link', { name: 'Open projector' }).getAttribute('href'))!;
   const projector = await (await browser.newContext({ viewport: { width: 1920, height: 1080 } })).newPage();
   await projector.goto(projectorLink);
@@ -169,5 +174,5 @@ test.afterAll(async () => {
   await second.setMyPanel(null).catch(() => undefined);
   const panel = board.panels.find((p) => p.name === panelName);
   if (panel?.current) await qm.endInterview(panel.current.interview_id).catch(() => undefined);
-  if (panel) await qm.deletePanel(panel.id).catch(() => undefined);
+  if (panel) await admin.deletePanel(panel.id).catch(() => undefined);
 });

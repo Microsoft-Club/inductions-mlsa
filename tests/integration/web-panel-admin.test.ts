@@ -53,7 +53,7 @@ describe('panelist, admin and results API', () => {
     original = await admin.induction();
 
     // One candidate, sent into a panel of their own.
-    panelId = await qm.addPanel();
+    panelId = await admin.addPanel();
     reg = `P3${Date.now()}`;
     await qm.importCandidates([{
       submitted_at: new Date().toISOString(), reg_number: reg, full_name: 'Plan Three Tester', email: '', account_email: '',
@@ -71,7 +71,7 @@ describe('panelist, admin and results API', () => {
     await admin.setDecision(candidateId, 'undecided').catch(() => undefined);
     await admin.updateSettings(original.name, original.target_interview_minutes).catch(() => undefined);
     if (interviewId) await qm.endInterview(interviewId).catch(() => undefined);
-    if (panelId) await qm.deletePanel(panelId).catch(() => undefined);
+    if (panelId) await admin.deletePanel(panelId).catch(() => undefined);
     for (const id of accountIds) await service.auth.admin.deleteUser(id);
   });
 

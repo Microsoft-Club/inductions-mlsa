@@ -5,13 +5,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DISABLED_NOTICE } from '../../../src/auth/AuthProvider.tsx';
 import { ApiError } from '../../../src/lib/api.ts';
 import { notAllowed } from '../../../src/lib/notAllowed.ts';
+import type { Role } from '../../../src/lib/types.ts';
 import { board, boardPanel, ended, interview } from './fixtures.ts';
 import { fakeApi, fakeAuth, renderApp } from './helpers.tsx';
 
-const queueManager = () => fakeAuth({ signedInAs: { id: 'u-queue', username: 'queue', display_name: 'Queue', role: 'queue_manager', is_active: true, current_panel_id: null } });
+const queueManager = (role: Role = 'queue_manager') =>
+  fakeAuth({ signedInAs: { id: 'u-queue', username: 'queue', display_name: 'Queue', role, is_active: true, current_panel_id: null } });
 
-async function openQueue(api = fakeApi()) {
-  const auth = queueManager();
+async function openQueue(api = fakeApi(), role: Role = 'queue_manager') {
+  const auth = queueManager(role);
   const view = renderApp('/queue', { api, auth: auth.backend });
   await screen.findByRole('region', { name: 'Panel 1' });
   return { ...view, api, auth };
@@ -131,10 +133,15 @@ describe('QueuePage', () => {
     expect(await screen.findByText('Panel 2 is busy')).toBeInTheDocument();
   });
 
-  it('adds panels and opens the CSV import', async () => {
-    const { api } = await openQueue();
+  it('lets an admin add panels', async () => {
+    const { api } = await openQueue(fakeApi(), 'admin');
     await userEvent.click(screen.getByRole('button', { name: '+ Add panel' }));
     expect(api.addPanel).toHaveBeenCalled();
+  });
+
+  it('gives the queue manager no + Add panel, and opens the CSV import', async () => {
+    await openQueue();
+    expect(screen.queryByRole('button', { name: '+ Add panel' })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Import CSV' }));
     expect(screen.getByRole('dialog', { name: 'Import candidates from CSV' })).toBeInTheDocument();
   });
