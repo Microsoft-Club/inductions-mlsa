@@ -67,6 +67,7 @@ async function person(role: 'queue_manager' | 'panelist' | 'admin') {
 const qmA = await person('queue_manager');
 const qmB = await person('queue_manager');
 const admin = await person('admin');
+const adminB = await person('admin'); // only admins add panels, so the "add at once" race needs two
 const pans = [await person('panelist'), await person('panelist'), await person('panelist'), await person('panelist')];
 const inductionId = (await qmA.api.boardSnapshot()).induction.id;
 
@@ -85,7 +86,7 @@ async function freshCandidates(n: number, checkIn = true): Promise<string[]> {
 }
 const panelsMade: string[] = [];
 async function newPanel(...seated: Array<{ api: Api }>): Promise<string> {
-  const id = await qmA.api.addPanel();
+  const id = await admin.api.addPanel();
   panelsMade.push(id);
   for (const p of seated) await p.api.setMyPanel(id);
   return id;
@@ -277,11 +278,11 @@ await scenario('the desk undoes a check-in while sending the person in', async (
   await pans[0].api.setMyPanel(null);
 });
 
-await scenario('two desks add a panel at once', async () => {
-  const out = await settle(() => qmA.api.addPanel(), () => qmB.api.addPanel());
+await scenario('two admins add a panel at once', async () => {
+  const out = await settle(() => admin.api.addPanel(), () => adminB.api.addPanel());
   for (const o of out) if (o.ok) panelsMade.push(o.value as string);
   const dupes = sql(`select name from public.panels where induction_id = '${inductionId}' and deleted_at is null group by name having count(*) > 1`);
-  record('two desks add a panel at once', describe(out), dupes ? `duplicate panel names: ${dupes}` : undefined);
+  record('two admins add a panel at once', describe(out), dupes ? `duplicate panel names: ${dupes}` : undefined);
 });
 
 await scenario('two desks import overlapping spreadsheets', async () => {

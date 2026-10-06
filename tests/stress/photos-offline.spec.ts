@@ -7,7 +7,7 @@ import { sql } from './db.ts';
 const RUN = Date.now().toString(36).toUpperCase();
 let seq = 0;
 
-async function person(role: 'queue_manager' | 'panelist' | 'photographer') {
+async function person(role: 'queue_manager' | 'admin' | 'panelist' | 'photographer') {
   const username = uniqueName(`np_${role.slice(0, 3)}`);
   const id = await makeAccount(username, role);
   return { username, id, api: createApi(await apiSignIn(username)) as Api };
@@ -70,6 +70,7 @@ test('the photographer saves with no signal, then again once back: the photo is 
 
 test("a panelist's first photo download fails: the face still shows during the interview", async ({ browser }) => {
   const desk = await person('queue_manager');
+  const admin = await person('admin');
   const photographer = await person('photographer');
   const panelist = await person('panelist');
   const c = await waitingCandidate(desk);
@@ -83,7 +84,7 @@ test("a panelist's first photo download fails: the face still shows during the i
   await capture.getByRole('button', { name: 'Save' }).click();
   await expect(capture).toBeHidden();
   // Sent in to a panel; the panelist's first download of the photo fails (a blip).
-  const panel = await desk.api.addPanel();
+  const panel = await admin.api.addPanel(); // only admins add panels
   await panelist.api.setMyPanel(panel);
   const interview = (await desk.api.sendIn(c.id, panel))!;
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -104,5 +105,5 @@ test("a panelist's first photo download fails: the face still shows during the i
   await expect(page.getByRole('img', { name: `Photo of ${c.name}` }).first(), 'the photo appears without a reload').toBeVisible({ timeout: 30_000 });
   await desk.api.endInterview(interview);
   await panelist.api.setMyPanel(null);
-  await desk.api.deletePanel(panel).catch(() => {});
+  await admin.api.deletePanel(panel).catch(() => {});
 });

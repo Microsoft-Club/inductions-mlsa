@@ -13,7 +13,7 @@ import { ImportDialog } from './ImportDialog.tsx';
 import { PanelCard } from './PanelCard.tsx';
 import { PhotoFlowProvider } from './PhotoFlow.tsx';
 import { PoolList } from './PoolList.tsx';
-import { parseListFilter, type ListFilter } from './queueView.ts';
+import { canManagePanels, parseListFilter, type ListFilter } from './queueView.ts';
 import { TopBar } from './TopBar.tsx';
 
 /** /queue: the queue manager's one screen (admins can open it too). */
@@ -67,7 +67,13 @@ export function QueuePage() {
     <ActionProvider onSettled={reload}>
       <PhotoFlowProvider>
         <ConnectionBanner status={status} />
-        <TopBar board={board} onImport={() => setImporting(true)} onShowList={openList} canReadForms={role === 'admin'} />
+        <TopBar
+          board={board}
+          onImport={() => setImporting(true)}
+          onShowList={openList}
+          canReadForms={role === 'admin'}
+          canAddPanels={canManagePanels(role)}
+        />
         {/* ?? []: a database without the form-sync migration yet has no form_warnings. */}
         <FormWarnings warnings={board.form_warnings ?? []} />
         {error && (

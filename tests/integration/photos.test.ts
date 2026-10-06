@@ -55,7 +55,7 @@ describe('candidate photos', () => {
 
   afterAll(async () => {
     if (interviewId) await qm.endInterview(interviewId).catch(() => undefined);
-    if (panelId) await qm.deletePanel(panelId).catch(() => undefined);
+    if (panelId) await admin.deletePanel(panelId).catch(() => undefined);
     for (const id of accountIds) await service.auth.admin.deleteUser(id);
     await rm(folder, { recursive: true, force: true });
   });
@@ -86,7 +86,7 @@ describe('candidate photos', () => {
   });
 
   it('stops the photographer once the candidate has gone in', async () => {
-    panelId = await qm.addPanel();
+    panelId = await admin.addPanel();
     await panelist.setMyPanel(panelId); // send in lines people up for a panel nobody is sitting in
     interviewId = await qm.sendIn(candidateId, panelId);
 

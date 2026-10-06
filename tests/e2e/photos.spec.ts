@@ -67,7 +67,7 @@ async function endCurrentInterview(qmApi: Api): Promise<void> {
 test('photos from check-in to the panel, and deleting them all', async ({ browser }) => {
   // Setup through the API: a panel of our own and three checked-in candidates.
   const qmApi = await apiAs('queue');
-  panelId = await qmApi.addPanel();
+  panelId = await (await apiAs('admin')).addPanel(); // only admins add panels
   const board = await qmApi.boardSnapshot();
   const panelName = board.panels.find((p) => p.id === panelId)!.name;
   await qmApi.importCandidates(people.map((p) => ({
@@ -153,8 +153,8 @@ test('photos from check-in to the panel, and deleting them all', async ({ browse
 
 // Put the shared dev database back: end our interview, let the panelist leave, delete our panel.
 test.afterAll(async () => {
-  const [qmApi, panelist] = await Promise.all([apiAs('queue'), apiAs('panelist3')]);
+  const [qmApi, adminApi, panelist] = await Promise.all([apiAs('queue'), apiAs('admin'), apiAs('panelist3')]);
   await endCurrentInterview(qmApi).catch(() => undefined);
   await panelist.setMyPanel(null).catch(() => undefined);
-  if (panelId) await qmApi.deletePanel(panelId).catch(() => undefined);
+  if (panelId) await adminApi.deletePanel(panelId).catch(() => undefined);
 });

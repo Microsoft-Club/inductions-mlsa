@@ -59,7 +59,7 @@ The queue manager, the panelists, the projector and the admins all see the same 
 |---|---|---|
 | **Candidates** | No | Nothing in the app. They see only the projector and, once published, the public selected list. |
 | **Panelist** | Yes | Read candidates (including answers and contact details), interviews and chats of **any** panel. Post chat messages. Write and read **only their own** evaluations. End interviews of the panel they are sitting in. Choose their current panel. |
-| **Queue manager (QM)** | Yes | Import the CSV. Check in candidates. All queue actions. Send in. End, undo and reopen interviews. Add panels. Delete **non-default** panels. **No** access to chats or evaluations. |
+| **Queue manager (QM)** | Yes | Import the CSV. Check in candidates. All queue actions. Send in. End, undo and reopen interviews. **No** adding or deleting panels (admins only). **No** access to chats or evaluations. |
 | **Admin** | Yes | Everything above, plus accounts, deleting any panel, settings, results, decisions and publishing. |
 | **Projector** | No (secret link) | Only the number, name, panel, interview start time, and the waiting list (numbers and names). |
 | **Public results page** | No | Names and reg numbers of selected candidates, and only after results are published. |
@@ -170,8 +170,8 @@ Direct writes to status, queue and interview columns are blocked by RLS.
 | `undo_send_in(interview_id)` | QM, admin | Interview must be `in_progress`. Sets the interview to `cancelled` and the candidate back to `waiting`, at the **top** of that panel's lane. |
 | `end_interview(interview_id)` | Panelist (only while sitting in that interview's panel), QM, admin | `in_progress` → `ended`, `ended_at = now()`, candidate → `interviewed`. The panel is free immediately. |
 | `reopen_interview(interview_id)` | QM, admin | Only for the panel's most recently ended interview, and only while the panel has no `in_progress` interview. Sets it back to `in_progress` (clears `ended_at`) and the candidate back to `interviewing`. The timer continues from the original `started_at`. |
-| `add_panel()` | QM, admin | Creates "Panel N", where N is the next number. |
-| `delete_panel(panel_id)` | Admin: any panel. QM: non-default panels only. | Refused if the panel has an `in_progress` interview. Moves its lane to the end of the pool, then soft-deletes it. Past interviews keep their panel. |
+| `add_panel()` | Admin | Creates "Panel N", where N is the lowest number not in use (a deleted panel keeps its number while the results show its interviews). |
+| `delete_panel(panel_id)` | Admin (any panel) | Refused if the panel has an `in_progress` interview. Moves its lane to the end of the pool, then soft-deletes it. Past interviews keep their panel. |
 | `set_my_panel(panel_id)` | Panelist, admin | Sets `current_panel_id`. |
 | `post_message(interview_id, body)` | Panelist, admin | Inserts a message. |
 | `submit_evaluation(interview_id, scores, recommendation, comments)` | Panelist, admin | Creates or updates the caller's evaluation for that interview. Refused after results are published. |
@@ -247,7 +247,7 @@ Supabase Realtime **Broadcast**. Messages are sent from Postgres with `realtime.
 **`/login`**: username + password. After login, users are sent to their role's home: QM → `/queue`, panelist → `/panel`, admin → `/admin`. Routes are guarded by role, and admin can open every screen.
 
 **`/queue`**: queue manager (and admin)
-- **Top bar:** counts (Registered · Waiting · Interviewing · Interviewed), search by number, name or reg number, **Import CSV** (opens the import summary), **+ Add panel**.
+- **Top bar:** counts (Registered · Waiting · Interviewing · Interviewed), search by number, name or reg number, **Import CSV** (opens the import summary), **+ Add panel** (admin only).
 - **Candidate lists:** clicking a count opens the full list of candidates with that status (tabs for each status and All), in number order, with where each person is, a filter box, and **Check in** on registered candidates. The list is part of the URL (`/queue?list=registered`), so it can be linked to.
 - **Panel cards (one per active panel):**
   - Status: Free (green), or Busy with number, name and live timer.
@@ -255,7 +255,7 @@ Supabase Realtime **Broadcast**. Messages are sent from Postgres with `realtime.
   - Busy: *End interview* and *Undo send-in*.
   - Free after an interview: "Last: #N Name — *Reopen*" until the next send-in.
   - The panel's lane with ↑ ↓ ⤒ (top), *Skip*, *Back to pool*, and **Send in** on the first person while the panel is free.
-  - *Delete panel*, shown to admin, and to the QM only on non-default panels.
+  - *Delete panel*, shown to admin only.
 - **Waiting pool:** ↑ ↓ ⤒, *Line up for ▾ Panel X*, *Send in → Panel X* (when a panel is free), *Skip*, *Undo check-in*, and the skip count.
 - **Hint:** if a panel is free and its lane is empty, the first person in the pool is highlighted with "Send in → Panel X".
 - **Search results:** show status, with **Check in** for `registered` candidates.

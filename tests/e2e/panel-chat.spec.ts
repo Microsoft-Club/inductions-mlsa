@@ -48,7 +48,7 @@ test('the discussion keeps unsent messages and its newest message in view', asyn
       phone: '', department: 'Test', batch: 'B00', preferences: [], answers: empty,
     })),
   );
-  panelId = await qm.addPanel();
+  panelId = await (await apiAs('admin')).addPanel(); // only admins add panels
   const board = await qm.boardSnapshot();
   const panelName = board.panels.find((p) => p.id === panelId)!.name;
   const people = (await qm.listCandidates(board.induction.id)).filter((c) => names.includes(c.full_name));
@@ -97,9 +97,9 @@ test('the discussion keeps unsent messages and its newest message in view', asyn
 
 // Put the shared dev database back: out of the panel, interview ended, panel deleted.
 test.afterAll(async () => {
-  const [qm, first] = await Promise.all([apiAs('queue'), apiAs('panelist1')]);
+  const [qm, admin, first] = await Promise.all([apiAs('queue'), apiAs('admin'), apiAs('panelist1')]);
   await first.setMyPanel(null).catch(() => undefined);
   const panel = (await qm.boardSnapshot()).panels.find((p) => p.id === panelId);
   if (panel?.current) await qm.endInterview(panel.current.interview_id).catch(() => undefined);
-  if (panel) await qm.deletePanel(panel.id).catch(() => undefined);
+  if (panel) await admin.deletePanel(panel.id).catch(() => undefined);
 });

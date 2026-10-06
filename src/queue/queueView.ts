@@ -31,9 +31,9 @@ export function freePanels(board: BoardSnapshot): BoardPanel[] {
   return board.panels.filter((panel) => panel.current === null);
 }
 
-/** Admins may remove any panel; the queue manager only the extra (non-default) ones. */
-export function canDeletePanel(panel: BoardPanel, role: Role): boolean {
-  return role === 'admin' || (role === 'queue_manager' && !panel.is_default);
+/** Only admins add and delete panels (any panel, Panel 1 and Panel 2 included). */
+export function canManagePanels(role: Role): boolean {
+  return role === 'admin';
 }
 
 /** Where a candidate is right now, for search results. */

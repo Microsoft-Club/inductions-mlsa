@@ -22,6 +22,7 @@ async function listen(
 describe('realtime delivery', () => {
   const accountIds: string[] = [];
   let qm: SupabaseClient;
+  let admin: SupabaseClient;
   let panelistA: SupabaseClient;
   let panelistB: SupabaseClient;
   let projector: SupabaseClient;
@@ -32,13 +33,14 @@ describe('realtime delivery', () => {
   let interviewId: string;
 
   beforeAll(async () => {
-    const names = { qm: uniqueName('rt_qm'), a: uniqueName('rt_pa'), b: uniqueName('rt_pb') };
+    const names = { qm: uniqueName('rt_qm'), admin: uniqueName('rt_ad'), a: uniqueName('rt_pa'), b: uniqueName('rt_pb') };
     accountIds.push(
       await makeAccount(names.qm, 'queue_manager'),
+      await makeAccount(names.admin, 'admin'),
       await makeAccount(names.a, 'panelist'),
       await makeAccount(names.b, 'panelist'),
     );
-    [qm, panelistA, panelistB] = await Promise.all([signIn(names.qm), signIn(names.a), signIn(names.b)]);
+    [qm, admin, panelistA, panelistB] = await Promise.all([signIn(names.qm), signIn(names.admin), signIn(names.a), signIn(names.b)]);
     projector = createClient(env.url, env.anonKey, { auth: { persistSession: false } });
 
     const induction = await service.from('inductions').select('display_key').eq('is_active', true).single();
@@ -64,7 +66,7 @@ describe('realtime delivery', () => {
     }
 
     // A fresh panel keeps this test independent of whatever else is on the board.
-    const panel = await qm.rpc('add_panel');
+    const panel = await admin.rpc('add_panel');
     if (panel.error) throw panel.error;
     panelId = panel.data;
     expect((await panelistA.rpc('set_my_panel', { p_panel_id: panelId })).error).toBeNull(); // send in lines people up for a panel nobody is sitting in
@@ -81,12 +83,12 @@ describe('realtime delivery', () => {
   });
 
   afterAll(async () => {
-    await Promise.all([qm, panelistA, panelistB, projector].map((c) => c?.removeAllChannels()));
+    await Promise.all([qm, admin, panelistA, panelistB, projector].map((c) => c?.removeAllChannels()));
     if (interviewId) {
       await qm.rpc('end_interview', { p_interview_id: interviewId });
       await service.from('messages').delete().eq('interview_id', interviewId);
     }
-    if (panelId) await qm.rpc('delete_panel', { p_panel_id: panelId });
+    if (panelId) await admin.rpc('delete_panel', { p_panel_id: panelId });
     for (const id of accountIds) await service.auth.admin.deleteUser(id);
   });
 

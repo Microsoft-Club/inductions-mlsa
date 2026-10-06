@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CandidateSummary } from '../../../src/lib/types.ts';
-import { canDeletePanel, describeLocation, filterCandidates, freePanels, notReadyConfirm, panelState, parseListFilter, poolHint, searchCandidates } from '../../../src/queue/queueView.ts';
+import { canManagePanels, describeLocation, filterCandidates, freePanels, notReadyConfirm, panelState, parseListFilter, poolHint, searchCandidates } from '../../../src/queue/queueView.ts';
 import { board, boardPanel, ended, interview, lane } from './fixtures.ts';
 
 const candidate = (number: number, full_name: string, status: CandidateSummary['status'], reg_number = `2025${number}`): CandidateSummary => ({
@@ -52,18 +52,15 @@ describe('panelState and notReadyConfirm', () => {
   });
 });
 
-describe('freePanels and canDeletePanel', () => {
+describe('freePanels and canManagePanels', () => {
   it('lists panels without an interview in progress', () => {
     expect(freePanels(board()).map((p) => p.id)).toEqual(['p2']);
   });
 
-  it('lets admins remove any panel and the queue manager only extra ones', () => {
-    const defaultPanel = boardPanel('p1', 'Panel 1', { is_default: true });
-    const extraPanel = boardPanel('p3', 'Panel 3');
-    expect(canDeletePanel(defaultPanel, 'admin')).toBe(true);
-    expect(canDeletePanel(defaultPanel, 'queue_manager')).toBe(false);
-    expect(canDeletePanel(extraPanel, 'queue_manager')).toBe(true);
-    expect(canDeletePanel(extraPanel, 'panelist')).toBe(false);
+  it('lets only admins add and remove panels', () => {
+    expect(canManagePanels('admin')).toBe(true);
+    expect(canManagePanels('queue_manager')).toBe(false);
+    expect(canManagePanels('panelist')).toBe(false);
   });
 });
 
