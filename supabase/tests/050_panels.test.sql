@@ -47,16 +47,32 @@ select throws_ok($$ select public.reopen_interview(tests.interview_id(4)) $$, 'P
                  'an interview on a deleted panel cannot be reopened');
 
 select public.add_panel();
-select is((select count(*)::int from public.panels where name = 'Panel 4'), 1, 'numbering continues after a deleted panel');
+select is((select count(*)::int from public.panels where name = 'Panel 4'), 1,
+          'a deleted panel the results still show keeps its number');
 select throws_ok(
   format('select public.send_in(tests.candidate_id(1), %L)', (select id from public.panels where name = 'Panel 3')),
   'P0001', 'Panel not found', 'nobody can be sent to a deleted panel');
+
+-- a deleted panel with no interviews, or only cancelled ones, gives its number back
+select public.delete_panel(tests.panel_id('Panel 4'));
+select public.add_panel();
+select is((select count(*)::int from public.panels where name = 'Panel 4'), 2, 'an unused number is taken again');
+select tests.seat('seat_three', 'Panel 4');
+select public.send_in(tests.candidate_id(1), tests.panel_id('Panel 4'));
+select public.undo_send_in(tests.interview_id(1));
+select public.delete_panel(tests.panel_id('Panel 4'));
+select public.add_panel();
+select is((select count(*)::int from public.panels where name = 'Panel 4'), 3,
+          'a number whose interviews were all cancelled is taken again');
 
 -- admins can delete default panels
 select tests.login_as('boss');
 select public.set_my_panel(tests.panel_id('Panel 2'));
 select lives_ok($$ select public.delete_panel(tests.panel_id('Panel 2')) $$, 'admin deletes Panel 2');
 select is((select current_panel_id from public.profiles where username = 'boss'), null::uuid, 'people present are cleared');
+select public.add_panel();
+select is(array(select x ->> 'name' from jsonb_array_elements(public.board_snapshot() -> 'panels') as x),
+          array['Panel 1', 'Panel 2', 'Panel 4'], 'the lowest free number is used, in its place on the board');
 
 select tests.login_as('pan_one');
 select throws_ok($$ select public.set_my_panel(gen_random_uuid()) $$, 'P0001', 'Panel not found', 'cannot join an unknown panel');
