@@ -1,6 +1,6 @@
 // Pure decisions behind the panelist screen.
 import { parseServerTime } from '../lib/clock.ts';
-import type { BoardPanel, BoardSnapshot, InterviewStatus, MyEvaluationWithInterview, PanelInterview } from '../lib/types.ts';
+import type { BoardPanel, BoardSnapshot, InterviewStatus, InterviewWithPanel, MyEvaluationWithInterview, PanelInterview } from '../lib/types.ts';
 
 /** The panel this person is sitting in, from the board's "panelists present" lists. */
 export function myPanel(board: BoardSnapshot, userId: string): BoardPanel | null {
@@ -26,6 +26,20 @@ const fromPanelInterview = (i: PanelInterview, inThisPanel: boolean): ShownInter
   inThisPanel,
 });
 
+/** An interview you sat in on a panel you've since left, still waiting for your evaluation. */
+export type LeftBehind = PanelInterview & { panelName: string };
+
+/**
+ * The interviews this panelist sat in on other panels (remembered on this device) that they haven't
+ * evaluated yet, so a switch never hides one they still owe. Empty while their evaluations are unknown.
+ */
+export function leftBehind(satIn: InterviewWithPanel[], panelId: string, evaluated: Set<string> | null): LeftBehind[] {
+  if (!evaluated) return [];
+  return satIn
+    .filter((i) => i.panel_id !== panelId && !evaluated.has(i.id))
+    .map((i) => ({ id: i.id, status: i.status, started_at: i.started_at, ended_at: i.ended_at, candidate: i.candidate, panelName: i.panel.name }));
+}
+
 /**
  * What the panelist sees: an interview they opened from Recent or from their evaluations; otherwise
  * the one in progress; otherwise the panel's latest one, which stays open after it ends (spec §9).
@@ -35,11 +49,14 @@ export function shownInterview(
   recent: PanelInterview[],
   pinnedId: string | null,
   evaluated: MyEvaluationWithInterview[] = [],
+  elsewhere: LeftBehind[] = [],
 ): ShownInterview | null {
   // Recent reloads with every board change, so it wins over the evaluations' copy of the same interview.
   if (pinnedId) {
     const fromRecent = recent.find((i) => i.id === pinnedId);
     if (fromRecent) return fromPanelInterview(fromRecent, true);
+    const fromElsewhere = elsewhere.find((i) => i.id === pinnedId);
+    if (fromElsewhere) return fromPanelInterview(fromElsewhere, false);
     const fromEvaluated = evaluated.find((e) => e.interview_id === pinnedId)?.interview;
     if (fromEvaluated) return fromPanelInterview(fromEvaluated, fromEvaluated.panel?.name === panel.name);
   }
@@ -57,11 +74,16 @@ export function shownInterview(
 }
 
 /**
- * The panel's other interviews, newest first, marking those this panelist hasn't evaluated.
- * `evaluated` is null while their evaluations are unknown; nothing is marked pending then.
+ * The panel's other interviews and those left behind on other panels, newest first, marking those
+ * this panelist hasn't evaluated. `evaluated` is null while their evaluations are unknown; nothing is
+ * marked pending then.
  */
-export function recentList(recent: PanelInterview[], shownId: string | null, evaluated: Set<string> | null) {
-  return recent.filter((i) => i.id !== shownId).map((i) => ({ ...i, pending: evaluated !== null && !evaluated.has(i.id) }));
+export function recentList(recent: PanelInterview[], shownId: string | null, evaluated: Set<string> | null, elsewhere: LeftBehind[] = []) {
+  const all: Array<PanelInterview & { panelName?: string }> = [...recent, ...elsewhere];
+  return all
+    .sort((a, b) => parseServerTime(b.started_at) - parseServerTime(a.started_at))
+    .filter((i) => i.id !== shownId)
+    .map((i) => ({ ...i, pending: evaluated !== null && !evaluated.has(i.id) }));
 }
 
 /** The candidates this panelist has evaluated, newest interview first. */
@@ -77,13 +99,17 @@ export interface PanelistStats {
 
 /**
  * The panelist's own numbers: evaluations they submitted (from any panel), and interviews on this
- * panel that ended without their evaluation. Nothing records who sat in each interview, so
- * "interviewed" is those two added up; an interview in progress counts once it's evaluated or ends.
- * null while their evaluations are unknown.
+ * panel, or left behind on another, that ended without their evaluation. The server doesn't record
+ * who sat in each interview, so "interviewed" is those two added up; an interview in progress counts
+ * once it's evaluated or ends. null while their evaluations are unknown.
  */
-export function panelistStats(recent: PanelInterview[], evaluations: MyEvaluationWithInterview[] | undefined): PanelistStats | null {
+export function panelistStats(
+  recent: PanelInterview[],
+  evaluations: MyEvaluationWithInterview[] | undefined,
+  elsewhere: LeftBehind[] = [],
+): PanelistStats | null {
   if (!evaluations) return null;
   const evaluated = new Set(evaluations.map((e) => e.interview_id));
-  const pending = recent.filter((i) => i.status === 'ended' && !evaluated.has(i.id)).length;
+  const pending = [...recent, ...elsewhere].filter((i) => i.status === 'ended' && !evaluated.has(i.id)).length;
   return { interviewed: evaluations.length + pending, evaluated: evaluations.length, pending };
 }

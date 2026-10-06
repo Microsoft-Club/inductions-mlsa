@@ -3,8 +3,9 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, NETWORK_ERROR, type Api } from '../../../src/lib/api.ts';
-import type { BoardSnapshot, MyEvaluationWithInterview, PanelInterview, Recommendation } from '../../../src/lib/types.ts';
+import type { BoardSnapshot, InterviewWithPanel, MyEvaluationWithInterview, PanelInterview, Recommendation } from '../../../src/lib/types.ts';
 import { chatDraftKey, loadChatDraft, saveChatDraft } from '../../../src/panel/chatDrafts.ts';
+import { loadSatIn, rememberSatIn } from '../../../src/panel/satIn.ts';
 import { board, boardPanel, candidateRow, criteriaList, ended, interview, lane, profile } from './fixtures.ts';
 import { fakeApi, fakeAuth, renderApp, type FakeApi } from './helpers.tsx';
 
@@ -531,5 +532,70 @@ describe('a message written for an earlier candidate that never got through', ()
     });
     await waitFor(() => expect(api.postMessage).toHaveBeenCalled());
     await waitFor(() => expect(loadChatDraft(chatDraftKey(me.id, 'i6')).unsent).toEqual([]));
+  });
+});
+
+describe('an interview you left on another panel without evaluating', () => {
+  beforeEach(() => localStorage.clear());
+
+  /** #3 Bilal Khan, interviewed in Panel 2 while you sat there; still going unless `status` says otherwise. */
+  const bilal = (status: PanelInterview['status'] = 'in_progress'): InterviewWithPanel => ({
+    ...past(3, 'Bilal Khan', status), panel_id: 'p2', panel: { name: 'Panel 2' },
+  });
+  const quietPanel1 = { boardSnapshot: vi.fn(async () => boardWithMe({ current: null })) };
+  const names = { candidate: vi.fn(async (id: string) => candidateRow({ id, number: Number(id.slice(1)), full_name: id === 'c3' ? 'Bilal Khan' : 'Sara Ahmed' })) };
+
+  it('is remembered on this device while you sit in it', async () => {
+    const sara: InterviewWithPanel = { ...past(7, 'Sara Ahmed', 'in_progress'), panel_id: 'p1', panel: { name: 'Panel 1' } };
+    const { api } = await openPanel({ interviewsById: vi.fn(async () => [sara]) });
+    await screen.findByRole('heading', { name: '#7 Sara Ahmed' });
+    await waitFor(() => expect(api.interviewsById).toHaveBeenCalledWith(['i7'], 'ind-1'));
+    expect(loadSatIn(me.id)).toEqual(['i7']);
+    // It's on the panel you're in, so Recent doesn't list it twice.
+    await openSection(/^Recent/);
+    expect(within(await screen.findByRole('region', { name: 'Recent' })).queryByRole('button', { name: '#7 Sara Ahmed' })).toBeNull();
+  });
+
+  it('stays in Recent, marked with its panel, and opens without End', async () => {
+    rememberSatIn(me.id, 'i3');
+    const { api } = await openPanel({ ...quietPanel1, ...names, interviewsById: vi.fn(async () => [bilal()]) });
+    await openSection(/^Recent/);
+    const recent = await screen.findByRole('region', { name: 'Recent' });
+    const row = (await within(recent).findByRole('button', { name: '#3 Bilal Khan' })).closest('li')!;
+    expect(row).toHaveTextContent('in Panel 2');
+    expect(row).toHaveTextContent('in progress');
+    expect(row).toHaveTextContent('Evaluation pending');
+    expect(api.interviewsById).toHaveBeenCalledWith(['i3'], 'ind-1');
+
+    await userEvent.click(within(row).getByRole('button', { name: '#3 Bilal Khan' }));
+    expect(await screen.findByRole('heading', { name: '#3 Bilal Khan' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'My evaluation' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'End interview' })).toBeNull(); // only Panel 2's panelists may end it
+  });
+
+  it('counts toward your pending evaluations once it has ended', async () => {
+    rememberSatIn(me.id, 'i3');
+    await openPanel({ ...quietPanel1, ...names, interviewsById: vi.fn(async () => [bilal('ended')]) });
+    expect(await within(await screen.findByRole('tablist', { name: 'Sections' })).findByRole('tab', { name: 'Recent 1 pending' })).toBeInTheDocument();
+  });
+
+  it('is gone, and forgotten, once you have evaluated it', async () => {
+    rememberSatIn(me.id, 'i3');
+    await openPanel({
+      ...quietPanel1,
+      ...names,
+      interviewsById: vi.fn(async () => [bilal('ended')]),
+      myEvaluations: vi.fn(async () => [mine(bilal('ended'), 'Panel 2')]),
+    });
+    await waitFor(() => expect(loadSatIn(me.id)).toEqual([]));
+    await openSection(/^Recent/);
+    expect(within(await screen.findByRole('region', { name: 'Recent' })).queryByRole('button', { name: '#3 Bilal Khan' })).toBeNull();
+  });
+
+  it('is forgotten when the server no longer has it (the send-in was undone)', async () => {
+    rememberSatIn(me.id, 'i9');
+    const { api } = await openPanel({ ...quietPanel1, interviewsById: vi.fn(async () => []) });
+    await waitFor(() => expect(api.interviewsById).toHaveBeenCalled());
+    await waitFor(() => expect(loadSatIn(me.id)).toEqual([]));
   });
 });

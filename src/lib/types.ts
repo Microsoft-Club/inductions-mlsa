@@ -169,6 +169,12 @@ export interface PanelInterview {
   candidate: { id: string; number: number; full_name: string };
 }
 
+/** An interview with the panel it is on (one a panelist sat in, looked up after they moved panel). */
+export interface InterviewWithPanel extends PanelInterview {
+  panel_id: string;
+  panel: { name: string };
+}
+
 export interface ChatMessage {
   id: string;
   interview_id: string;

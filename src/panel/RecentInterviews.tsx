@@ -1,15 +1,17 @@
 import type { PanelInterview } from '../lib/types.ts';
 
 interface RecentInterviewsProps {
-  items: Array<PanelInterview & { pending: boolean }>;
+  /** `panelName` marks an interview you sat in on a panel you've since left. */
+  items: Array<PanelInterview & { pending: boolean; panelName?: string }>;
   /** Interviews holding a message of yours that hasn't reached the server yet. */
   unsent?: Set<string>;
   onOpen: (interviewId: string) => void;
 }
 
 /**
- * The panel's earlier interviews; "Evaluation pending" until this panelist submits one, and
- * "Message not sent" while a message they wrote there is still waiting for the connection.
+ * The panel's earlier interviews, plus any you left on another panel without evaluating (marked with
+ * that panel's name); "Evaluation pending" until this panelist submits one, and "Message not sent"
+ * while a message they wrote there is still waiting for the connection.
  */
 export function RecentInterviews({ items, unsent, onOpen }: RecentInterviewsProps) {
   return (
@@ -26,6 +28,7 @@ export function RecentInterviews({ items, unsent, onOpen }: RecentInterviewsProp
               <button type="button" className="font-medium text-brand-700 hover:underline" onClick={() => onOpen(item.id)}>
                 <span className="tabular-nums">#{item.candidate.number}</span> <bdi>{item.candidate.full_name}</bdi>
               </button>
+              {item.panelName && <span className="text-xs text-slate-600">in {item.panelName}</span>}
               {item.status === 'in_progress' && <span className="text-xs text-sky-700">in progress</span>}
               {item.pending && (
                 <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">Evaluation pending</span>

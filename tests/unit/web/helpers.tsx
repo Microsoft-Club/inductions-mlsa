@@ -58,6 +58,7 @@ export function fakeApi(overrides: Partial<Api> = {}): FakeApi {
     removeFromPanel: vi.fn(async () => {}),
     candidate: vi.fn(async (id: string) => candidateRow({ id })),
     panelInterviews: vi.fn(async () => []),
+    interviewsById: vi.fn(async () => []),
     criteria: vi.fn(async () => criteriaList()),
     interviewMessages: vi.fn(async () => []),
     postMessage: vi.fn(async (interviewId: string, body: string, id: string) => ({
