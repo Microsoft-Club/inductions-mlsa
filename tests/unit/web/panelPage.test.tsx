@@ -117,15 +117,31 @@ describe('the panelist screen', () => {
   });
 
   it('switches panel from the header, offering only the other panels', async () => {
-    const { api } = await openPanel();
-    await screen.findByRole('heading', { name: '#7 Sara Ahmed' });
+    const confirm = vi.spyOn(window, 'confirm');
+    const { api } = await openPanel({ boardSnapshot: vi.fn(async () => boardWithMe({ current: null })) });
+    await screen.findByRole('heading', { level: 1, name: 'Panel 1' });
     const switchButton = screen.getByRole('button', { name: 'Switch panel' });
     expect(switchButton).toHaveAttribute('aria-expanded', 'false');
     await userEvent.click(switchButton);
     const others = screen.getByRole('group', { name: 'Switch to' });
     expect(within(others).getAllByRole('button').map((b) => b.textContent)).toEqual(['Panel 2']);
     await userEvent.click(within(others).getByRole('button', { name: 'Panel 2' }));
+    expect(confirm).not.toHaveBeenCalled(); // no interview on: no question
     expect(api.setMyPanel).toHaveBeenCalledExactlyOnceWith('p2');
+    confirm.mockRestore();
+  });
+
+  it('asks before switching panel while an interview is on', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    const { api } = await openPanel();
+    await screen.findByRole('heading', { name: '#7 Sara Ahmed' });
+    await userEvent.click(screen.getByRole('button', { name: 'Switch panel' }));
+    await userEvent.click(within(screen.getByRole('group', { name: 'Switch to' })).getByRole('button', { name: 'Panel 2' }));
+    expect(confirm).toHaveBeenLastCalledWith('The interview with #7 Sara Ahmed is still on. Switch to Panel 2 anyway?');
+    expect(api.setMyPanel).not.toHaveBeenCalled();
+    await userEvent.click(within(screen.getByRole('group', { name: 'Switch to' })).getByRole('button', { name: 'Panel 2' }));
+    expect(api.setMyPanel).toHaveBeenCalledExactlyOnceWith('p2');
+    confirm.mockRestore();
   });
 
   it('leaves the panel from the header, asking first while an interview is on', async () => {
