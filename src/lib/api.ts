@@ -33,6 +33,13 @@ export const NETWORK_ERROR = "Can't reach the server. Check the connection and t
 export const TIMEOUT_ERROR = 'The server took too long to answer. Check the board before trying again.';
 export const PHOTO_TIMEOUT_ERROR = 'The connection is too slow right now. Try again.';
 export const NOT_ALLOWED = 'Not allowed';
+/**
+ * A request went out without a valid sign-in (HTTP 401). After a long connection drop the login token
+ * can't be renewed for up to a minute (supabase-js waits that long before retrying a failed renewal),
+ * and requests meanwhile go out signed out. It is not a refusal: the next try after renewal works. A
+ * session that is really gone (account disabled, deleted) ends with Supabase's own sign-out event.
+ */
+export const SESSION_ERROR = 'Your sign-in is reconnecting. Try again in a moment.';
 
 /** An action or read failed; `message` is safe to show (usually the database's own short message). */
 export class ApiError extends Error {}
@@ -43,6 +50,9 @@ export function errorMessage(error: unknown): string {
 
 /** Turns a PostgREST/Postgres error into the message a person should see. */
 export function friendlyMessage(error: { message?: string; code?: string }, status?: number): string {
+  // Sent without a valid sign-in. Only a signed-in refusal (403) is "Not allowed", which makes the
+  // screen check whether the account was just disabled and sign out if so.
+  if (status === 401) return SESSION_ERROR;
   if (error.code === '42501') return NOT_ALLOWED; // require_role() and RLS both use this code
   if (status === 0 || /failed to fetch|fetch failed|networkerror/i.test(error.message ?? '')) return NETWORK_ERROR;
   return error.message?.trim() || 'Something went wrong';
@@ -179,7 +189,7 @@ export function createApi(
   async function photoRequest(path: string, init: RequestInit = {}, limitMs = timeoutMs): Promise<Response> {
     const { data } = await client.auth.getSession();
     const token = data.session?.access_token;
-    if (!token) throw fail({ message: NOT_ALLOWED, code: '42501' });
+    if (!token) throw new ApiError(SESSION_ERROR); // the token is being renewed (see SESSION_ERROR)
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), limitMs);
     let response: Response;
@@ -195,7 +205,8 @@ export function createApi(
       clearTimeout(timer);
     }
     if (response.ok || (response.status === 404 && !init.method)) return response;
-    if (response.status === 401 || response.status === 403) throw fail({ message: NOT_ALLOWED, code: '42501' });
+    if (response.status === 401) throw new ApiError(SESSION_ERROR);
+    if (response.status === 403) throw fail({ message: NOT_ALLOWED, code: '42501' }, 403);
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new ApiError(body?.error?.trim() || 'Something went wrong');
   }
@@ -317,7 +328,8 @@ export function createApi(
       if (error instanceof FunctionsHttpError) {
         const response = error.context as Response;
         const body = (await response.json().catch(() => null)) as { error?: string } | null;
-        const message = response.status === 401 || response.status === 403 ? NOT_ALLOWED : body?.error?.trim() || 'Something went wrong';
+        const message =
+          response.status === 401 ? SESSION_ERROR : response.status === 403 ? NOT_ALLOWED : body?.error?.trim() || 'Something went wrong';
         if (message === NOT_ALLOWED) notAllowed.emit();
         throw new ApiError(message);
       }
