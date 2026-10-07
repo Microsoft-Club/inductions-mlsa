@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActionButton } from '../components/ActionButton.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
 import type { BoardSnapshot } from '../lib/types.ts';
@@ -7,22 +7,46 @@ import { CandidateName } from './bits.tsx';
 import { describeLocation, searchCandidates } from './queueView.ts';
 import { useCandidates } from './useCandidates.ts';
 
-/** Find anyone by number, name or reg number; check in people who haven't arrived yet. Admins can open the form. */
+/**
+ * Find anyone by number, name or reg number; check in people who haven't arrived yet. Admins can open the form.
+ * The results close on a click or Tab anywhere else and come back, same search, when the box is used again.
+ */
 export function SearchBox({ board, canReadForms = false }: { board: BoardSnapshot; canReadForms?: boolean }) {
   const api = useApi();
   const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
-  const searching = query.trim() !== '';
+  const box = useRef<HTMLDivElement>(null);
+  const searching = query.trim() !== '' && open;
   const { list, error } = useCandidates(board, searching);
 
   const results = searching && list ? searchCandidates(list, query) : [];
 
+  // While an application is open on top, clicks land in it (or in a photo opened from it): they leave the results be.
+  useEffect(() => {
+    if (!searching || openId) return;
+    const onOutside = (e: Event) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', onOutside);
+    document.addEventListener('focusin', onOutside);
+    return () => {
+      document.removeEventListener('pointerdown', onOutside);
+      document.removeEventListener('focusin', onOutside);
+    };
+  }, [searching, openId]);
+
   return (
-    <div className="relative w-full max-w-md">
+    <div ref={box} className="relative w-full max-w-md">
       <input
         type="search"
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
         onKeyDown={(e) => {
           if (e.key === 'Escape') setQuery('');
         }}
