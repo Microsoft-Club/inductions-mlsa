@@ -60,8 +60,19 @@ describe('PanelCard', () => {
     expect(confirm).toHaveBeenCalledWith('End the interview with #7 Sara Ahmed in Panel 1?');
     expect(api.endInterview).not.toHaveBeenCalled(); // cancelled
     await userEvent.click(within(card).getByRole('button', { name: 'End interview' }));
-    await userEvent.click(within(card).getByRole('button', { name: 'Undo send-in' }));
     expect(api.endInterview).toHaveBeenCalledWith('i7');
+  });
+
+  it('asks before Undo send-in, saying how long the interview has run', async () => {
+    const startedAt = new Date(Date.now() - (7 * 60 + 32) * 1000).toISOString();
+    const { api, card } = renderCard(boardPanel('p1', 'Panel 1', { current: interview(7, 'Sara Ahmed', startedAt) }));
+
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    await userEvent.click(within(card).getByRole('button', { name: 'Undo send-in' }));
+    expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/^Undo send-in for #7 Sara Ahmed\? The interview \(running 07:3\d\) is cancelled/));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("the top of Panel 1's line. Use this only if the wrong person went in"));
+    expect(api.undoSendIn).not.toHaveBeenCalled(); // cancelled
+    await userEvent.click(within(card).getByRole('button', { name: 'Undo send-in' }));
     expect(api.undoSendIn).toHaveBeenCalledWith('i7');
   });
 

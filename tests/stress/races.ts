@@ -153,6 +153,19 @@ await scenario('panelist ends while the desk undoes the send-in', async () => {
   await pans[0].api.setMyPanel(null);
 });
 
+await scenario('panelist submits an evaluation while the desk undoes the send-in', async () => {
+  const name = 'panelist submits an evaluation while the desk undoes the send-in';
+  const panel = await newPanel(pans[0]);
+  const [c] = await freshCandidates(1);
+  const interview = (await qmA.api.sendIn(c, panel))!;
+  const out = await settle(() => pans[0].api.submitEvaluation(interview, { communication: 4 }, 'yes', ''), () => qmA.api.undoSendIn(interview));
+  const orphaned = sql(`select count(*) from public.evaluations e join public.interviews i on i.id = e.interview_id where i.id = '${interview}' and i.status = 'cancelled'`);
+  record(name, describe(out), oks(out) !== 1 || orphaned !== '0' ? `${describe(out)}, evaluations on the cancelled interview: ${orphaned}` : undefined);
+  const live = await liveInterview(c);
+  if (live) await qmA.api.endInterview(live);
+  await pans[0].api.setMyPanel(null);
+});
+
 await scenario('two panelists press End together', async () => {
   const panel = await newPanel(pans[0], pans[1]);
   const [c] = await freshCandidates(1);
