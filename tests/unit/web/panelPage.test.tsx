@@ -229,6 +229,27 @@ describe('the panelist screen', () => {
     expect(api.candidate).toHaveBeenLastCalledWith('c12');
   });
 
+  it('loads the whole candidate list only while Find a candidate is open', async () => {
+    const { api } = await openPanel({
+      listCandidates: vi.fn(async () => [{ id: 'c5', number: 5, full_name: 'Hina Tariq', reg_number: '2025005', status: 'registered' as const }]),
+    });
+    await screen.findByRole('heading', { name: '#7 Sara Ahmed' });
+    api.topics.board.event(); // board changes while Find is hidden fetch nothing
+    await waitFor(() => expect(api.boardSnapshot).toHaveBeenCalledTimes(2));
+    expect(api.listCandidates).not.toHaveBeenCalled();
+
+    await openSection('Find a candidate');
+    expect(await screen.findByRole('button', { name: /#5 Hina Tariq/ })).toBeInTheDocument();
+    expect(api.listCandidates).toHaveBeenCalledTimes(1);
+
+    await openSection('Interview');
+    api.topics.board.event();
+    await waitFor(() => expect(api.boardSnapshot).toHaveBeenCalledTimes(3));
+    expect(api.listCandidates).toHaveBeenCalledTimes(1); // hidden again: no more fetches
+    await openSection('Find a candidate');
+    expect(screen.getByRole('button', { name: /#5 Hina Tariq/ })).toBeInTheDocument(); // the last list, at once
+  });
+
   it("opens any candidate's application read-only from search", async () => {
     const { api } = await openPanel({
       listCandidates: vi.fn(async () => [{ id: 'c5', number: 5, full_name: 'Hina Tariq', reg_number: '2025005', status: 'registered' as const }]),

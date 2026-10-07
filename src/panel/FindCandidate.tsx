@@ -8,13 +8,15 @@ import { ApplicationDialog } from './ApplicationDialog.tsx';
 
 /**
  * Every candidate in number order, narrowed by status or by number, name or reg number. Any of them
- * opens their application, read-only (no chat or evaluation).
+ * opens their application, read-only (no chat or evaluation). The list is only fetched while `active`
+ * (its section is on screen): it is the whole roster, re-read on every board change, and the panel
+ * screen keeps this section mounted while hidden. Reopened, it shows the last list while it refreshes.
  */
-export function FindCandidate({ board }: { board: BoardSnapshot }) {
+export function FindCandidate({ board, active = true }: { board: BoardSnapshot; active?: boolean }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<ListFilter>('all');
   const [openId, setOpenId] = useState<string | null>(null);
-  const { list, error } = useCandidates(board, true);
+  const { list, error } = useCandidates(board, active);
   const counts: Record<ListFilter, number> = { ...board.counts, all: Object.values(board.counts).reduce((a, b) => a + b, 0) };
   const inList = list ? filterCandidates(list, filter, '') : [];
   const shown = list ? filterCandidates(list, filter, query) : [];
