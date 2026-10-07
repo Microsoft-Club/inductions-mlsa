@@ -117,6 +117,29 @@ describe('the panelist screen', () => {
     expect(await screen.findByRole('heading', { name: '#7 Sara Ahmed' })).toBeInTheDocument();
   });
 
+  it('keeps an interview older than the latest 30 in Recent and in Pending until it is evaluated', async () => {
+    // The panel's latest 30 (#21..#50) are all evaluated; #2 and #1, long ago, are not.
+    const latest = Array.from({ length: 30 }, (_, i) => past(50 - i, `Candidate ${50 - i}`));
+    const { api } = await openPanel({
+      boardSnapshot: vi.fn(async () => boardWithMe({ current: null })),
+      panelInterviews: vi.fn(async () => latest),
+      pendingInterviews: vi.fn(async () => [past(2, 'Hina Tariq'), past(1, 'Omar Farooq')]),
+      myEvaluations: vi.fn(async () => latest.map((i) => mine(i, 'Panel 1'))),
+    });
+    const numbers = await screen.findByRole('region', { name: 'Your numbers' });
+    await waitFor(() => expect(numbers).toHaveTextContent('Pending2'));
+    expect(numbers).toHaveTextContent('Interviewed32');
+    expect(api.pendingInterviews).toHaveBeenCalledWith('p1');
+
+    await openSection(/^Recent/);
+    const recent = await screen.findByRole('region', { name: 'Recent' });
+    const row = (text: string) => within(recent).getAllByRole('listitem').find((li) => li.textContent?.includes(text));
+    expect(row('#2 Hina Tariq')).toHaveTextContent('Evaluation pending');
+    expect(row('#1 Omar Farooq')).toHaveTextContent('Evaluation pending');
+    expect(row('#50 Candidate 50')).toBeUndefined(); // the latest one is open in Interview, not listed
+    expect(row('#49 Candidate 49')).not.toHaveTextContent('Evaluation pending');
+  });
+
   it('switches panel from the header, offering only the other panels', async () => {
     const confirm = vi.spyOn(window, 'confirm');
     const { api } = await openPanel({ boardSnapshot: vi.fn(async () => boardWithMe({ current: null })) });
@@ -204,6 +227,27 @@ describe('the panelist screen', () => {
     await userEvent.click(within(screen.getByRole('list', { name: 'Candidates' })).getByRole('button', { name: '#12 Ali Raza' }));
     expect(await screen.findByRole('dialog', { name: 'Application of #12 Ali Raza' })).toBeInTheDocument();
     expect(api.candidate).toHaveBeenLastCalledWith('c12');
+  });
+
+  it('loads the whole candidate list only while Find a candidate is open', async () => {
+    const { api } = await openPanel({
+      listCandidates: vi.fn(async () => [{ id: 'c5', number: 5, full_name: 'Hina Tariq', reg_number: '2025005', status: 'registered' as const }]),
+    });
+    await screen.findByRole('heading', { name: '#7 Sara Ahmed' });
+    api.topics.board.event(); // board changes while Find is hidden fetch nothing
+    await waitFor(() => expect(api.boardSnapshot).toHaveBeenCalledTimes(2));
+    expect(api.listCandidates).not.toHaveBeenCalled();
+
+    await openSection('Find a candidate');
+    expect(await screen.findByRole('button', { name: /#5 Hina Tariq/ })).toBeInTheDocument();
+    expect(api.listCandidates).toHaveBeenCalledTimes(1);
+
+    await openSection('Interview');
+    api.topics.board.event();
+    await waitFor(() => expect(api.boardSnapshot).toHaveBeenCalledTimes(3));
+    expect(api.listCandidates).toHaveBeenCalledTimes(1); // hidden again: no more fetches
+    await openSection('Find a candidate');
+    expect(screen.getByRole('button', { name: /#5 Hina Tariq/ })).toBeInTheDocument(); // the last list, at once
   });
 
   it("opens any candidate's application read-only from search", async () => {

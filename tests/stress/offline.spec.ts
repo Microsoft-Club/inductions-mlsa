@@ -348,6 +348,8 @@ test('a long drop past the login token\'s expiry does not sign the panelist out'
   await w.page.waitForTimeout(30_000);
   test.info().annotations.push({ type: 'observation', description: `after reconnecting the page is on ${new URL(w.page.url()).pathname}` });
   await expect(w.page, 'still signed in').toHaveURL(/\/panel$/);
-  await expect(w.page.getByText(BANNER)).toHaveCount(0, { timeout: 30_000 });
+  // supabase-js waits 60 s before retrying a token renewal that failed (here: while offline), so the
+  // board can need up to ~75 s after reconnecting (60 s, the next renewal, a channel rejoin) to be live.
+  await expect(w.page.getByText(BANNER)).toHaveCount(0, { timeout: 45_000 });
   await expect(w.page.getByRole('button', { name: 'Leave panel' })).toBeVisible();
 });

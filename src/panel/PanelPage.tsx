@@ -7,12 +7,12 @@ import { ConnectionBanner } from '../components/ConnectionBanner.tsx';
 import { FullPageMessage } from '../components/FullPageMessage.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
 import type { BoardPanel, BoardSnapshot, Criterion, InterviewWithPanel, MyEvaluationWithInterview, PanelInterview, Profile } from '../lib/types.ts';
-import { useLiveSnapshot } from '../lib/useLiveSnapshot.ts';
+import { STAFF_RESYNC_MS, useLiveSnapshot } from '../lib/useLiveSnapshot.ts';
 import { EvaluatedCandidates } from './EvaluatedCandidates.tsx';
 import { FindCandidate } from './FindCandidate.tsx';
 import { InterviewWorkspace } from './InterviewWorkspace.tsx';
 import { parseSection, SectionTabs, sectionPanelId, sectionTabId, YourNumbers, type Section } from './PanelistSections.tsx';
-import { evaluatedList, leftBehind, myPanel, panelistStats, recentList, shownInterview } from './panelView.ts';
+import { evaluatedList, leftBehind, myPanel, panelistStats, recentList, shownInterview, withPending } from './panelView.ts';
 import { ReadyForNext } from './ReadyForNext.tsx';
 import { RecentInterviews } from './RecentInterviews.tsx';
 import { forgetSatIn, loadSatIn, rememberSatIn } from './satIn.ts';
@@ -23,7 +23,7 @@ export function PanelPage() {
   const api = useApi();
   const { state } = useAuth();
   const subscribe = useMemo(() => api.subscribeBoard(), [api]);
-  const { data: board, error, status, reload } = useLiveSnapshot(api.boardSnapshot, subscribe);
+  const { data: board, error, status, reload } = useLiveSnapshot(api.boardSnapshot, subscribe, STAFF_RESYNC_MS);
 
   useEffect(() => {
     document.title = 'Panel · MLSA Induction';
@@ -97,6 +97,20 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
     };
   }, [api, panel.id, boardVersion]);
 
+  // Recent loads the panel's latest 30; older interviews still owed an evaluation come separately, and
+  // again after each of your evaluations, so none drops off Recent or out of Pending on a busy panel.
+  const [pending, setPending] = useState<PanelInterview[]>([]);
+  useEffect(() => {
+    let current = true;
+    api.pendingInterviews(panel.id).then(
+      (rows) => current && setPending(rows),
+      () => {}, // keep the last list
+    );
+    return () => {
+      current = false;
+    };
+  }, [api, panel.id, boardVersion, evaluations]);
+
   // Every interview you sit in is remembered on this device, so moving panel before evaluating it
   // never loses it: it stays in Recent, marked with its panel, until you evaluate it.
   const currentId = panel.current?.interview_id;
@@ -149,7 +163,8 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
 
   const evaluated = evaluations ? new Set(evaluations.map((e) => e.interview_id)) : null;
   const elsewhere = leftBehind(satIn, panel.id, evaluated);
-  const shown = shownInterview(panel, recent, pinnedId, evaluations, elsewhere);
+  const panelList = withPending(recent, pending);
+  const shown = shownInterview(panel, panelList, pinnedId, evaluations, elsewhere);
   const unsent = useStrandedMessages(me.id, shown?.id ?? null, boardVersion);
   const openRecent = (interviewId: string) => {
     setPinnedId(interviewId);
@@ -160,7 +175,7 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
     reloadEvaluations(); // an interview in another panel may have ended since the list loaded
     choose('interview');
   };
-  const stats = panelistStats(recent, evaluations, elsewhere);
+  const stats = panelistStats(panelList, evaluations, elsewhere);
   const next = panel.lane[0];
   const sectionProps = (id: Section) => ({ role: 'tabpanel', id: sectionPanelId(id), 'aria-labelledby': sectionTabId(id), hidden: section !== id });
 
@@ -228,7 +243,7 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
       </div>
 
       <div {...sectionProps('recent')}>
-        <RecentInterviews items={recentList(recent, shown?.id ?? null, evaluated, elsewhere)} unsent={unsent} onOpen={openRecent} />
+        <RecentInterviews items={recentList(panelList, shown?.id ?? null, evaluated, elsewhere)} unsent={unsent} onOpen={openRecent} />
       </div>
 
       <div {...sectionProps('evaluated')}>
@@ -249,7 +264,7 @@ function InPanel({ board, panel, me }: { board: BoardSnapshot; panel: BoardPanel
       <div {...sectionProps('find')}>
         <div className="max-w-xl space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-sm text-slate-600">Every candidate, in number order. Open anyone to read their application.</p>
-          <FindCandidate board={board} />
+          <FindCandidate board={board} active={section === 'find'} />
         </div>
       </div>
     </main>

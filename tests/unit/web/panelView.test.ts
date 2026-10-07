@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { InterviewWithPanel, MyEvaluationWithInterview, PanelInterview } from '../../../src/lib/types.ts';
-import { leftBehind, panelistStats, recentList, shownInterview } from '../../../src/panel/panelView.ts';
+import { leftBehind, panelistStats, recentList, shownInterview, withPending } from '../../../src/panel/panelView.ts';
 import { boardPanel } from './fixtures.ts';
 
 const interview = (n: number, status: PanelInterview['status'] = 'ended'): PanelInterview => ({
@@ -17,6 +17,26 @@ const evaluation = (i: PanelInterview, panel = 'Panel 1'): MyEvaluationWithInter
   comments: '',
   updated_at: '2026-09-26T09:20:00Z',
   interview: { ...i, panel: { name: panel } },
+});
+
+describe('withPending', () => {
+  it('adds the older interviews still owed an evaluation to the latest ones, newest first, once each', () => {
+    const latest = [interview(40, 'in_progress'), interview(39), interview(38)];
+    const merged = withPending(latest, [interview(39), interview(3), interview(1)]);
+    expect(merged.map((i) => i.id)).toEqual(['i40', 'i39', 'i38', 'i3', 'i1']);
+  });
+
+  it('keeps the latest list as it is when nothing older is pending', () => {
+    const latest = [interview(5), interview(4)];
+    expect(withPending(latest, [interview(4)])).toBe(latest);
+    expect(withPending(latest, [])).toBe(latest);
+  });
+
+  it('counts the older ones as pending too', () => {
+    const latest = [interview(40), interview(39)];
+    const stats = panelistStats(withPending(latest, [interview(2), interview(1)]), [evaluation(interview(40)), evaluation(interview(39))]);
+    expect(stats).toEqual({ interviewed: 4, evaluated: 2, pending: 2 });
+  });
 });
 
 describe('panelistStats', () => {

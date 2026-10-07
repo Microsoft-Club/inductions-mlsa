@@ -4,7 +4,7 @@ import { ConnectionBanner } from '../components/ConnectionBanner.tsx';
 import { FullPageMessage } from '../components/FullPageMessage.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
 import type { PhotoQueueEntry } from '../lib/types.ts';
-import { useLiveSnapshot } from '../lib/useLiveSnapshot.ts';
+import { STAFF_RESYNC_MS, useLiveSnapshot } from '../lib/useLiveSnapshot.ts';
 import { CandidatePhoto } from './CandidatePhoto.tsx';
 import { CaptureView } from './CaptureView.tsx';
 import { photoCounts, photoLists } from './photoQueueView.ts';
@@ -13,7 +13,7 @@ import { photoCounts, photoLists } from './photoQueueView.ts';
 export function PhotosPage() {
   const api = useApi();
   const subscribe = useMemo(() => api.subscribeBoard(), [api]);
-  const { data: entries, error, status, reload } = useLiveSnapshot(api.photoQueue, subscribe);
+  const { data: entries, error, status, reload } = useLiveSnapshot(api.photoQueue, subscribe, STAFF_RESYNC_MS);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState<PhotoQueueEntry | null>(null);
 

@@ -16,7 +16,7 @@ select results_eq(
             ('authorize_photo_view'), ('board_snapshot'), ('candidate_record'), ('check_in'), ('clear_photos'),
             ('delete_panel'), ('dismiss_form_warning'), ('display_snapshot'), ('end_interview'), ('evaluation_count'), ('evaluations_export'),
             ('get_display_key'), ('has_role'), ('import_candidates'), ('interview_messages'),
-            ('mark_panel_ready'), ('move_candidate'), ('photo_count'), ('photo_queue'), ('post_message'), ('published_results'),
+            ('mark_panel_ready'), ('move_candidate'), ('my_pending_interviews'), ('photo_count'), ('photo_queue'), ('post_message'), ('published_results'),
             ('record_photo'), ('regenerate_display_key'), ('remove_from_panel'), ('reopen_interview'), ('results_table'), ('send_in'),
             ('server_now'), ('set_decision'), ('set_my_panel'), ('set_results_published'), ('skip_candidate'),
             ('submit_evaluation'), ('undo_check_in'), ('undo_send_in'), ('update_settings') $$,

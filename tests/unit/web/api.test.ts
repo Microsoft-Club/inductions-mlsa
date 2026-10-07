@@ -7,6 +7,7 @@ import {
   NETWORK_ERROR,
   NOT_ALLOWED,
   PHOTO_TIMEOUT_ERROR,
+  SESSION_ERROR,
   TIMEOUT_ERROR,
   type ApiOptions,
   type PhotoFetch,
@@ -29,7 +30,9 @@ describe('friendlyMessage', () => {
   });
   it('maps permission errors and network failures', () => {
     expect(friendlyMessage({ message: 'Not allowed', code: '42501' }, 403)).toBe(NOT_ALLOWED);
-    expect(friendlyMessage({ message: 'permission denied for table candidates', code: '42501' }, 401)).toBe(NOT_ALLOWED);
+    // 401: sent without a valid sign-in (its renewal is waiting out a failure), not a refusal
+    expect(friendlyMessage({ message: 'permission denied for function board_snapshot', code: '42501' }, 401)).toBe(SESSION_ERROR);
+    expect(friendlyMessage({ message: 'JWT expired', code: 'PGRST303' }, 401)).toBe(SESSION_ERROR);
     expect(friendlyMessage({ message: 'TypeError: Failed to fetch', code: '' }, 0)).toBe(NETWORK_ERROR);
     expect(friendlyMessage({ message: '' }, 500)).toBe('Something went wrong');
   });
@@ -66,6 +69,17 @@ describe('createApi', () => {
     const api = createApi(clientReturning({ error: { message: 'Not allowed', code: '42501' }, status: 403 }).client);
     await expect(api.boardSnapshot()).rejects.toThrow(NOT_ALLOWED);
     expect(listener).toHaveBeenCalledTimes(1);
+    stop();
+  });
+
+  it('does not announce "Not allowed" for a request sent without a valid sign-in', async () => {
+    // After a long drop supabase-js can't renew the token for up to a minute and sends requests signed
+    // out; the server answers 401. Announcing "Not allowed" made the screen sign the person out.
+    const listener = vi.fn();
+    const stop = notAllowed.subscribe(listener);
+    const api = createApi(clientReturning({ error: { message: 'permission denied for function board_snapshot', code: '42501' }, status: 401 }).client);
+    await expect(api.boardSnapshot()).rejects.toThrow(SESSION_ERROR);
+    expect(listener).not.toHaveBeenCalled();
     stop();
   });
 
@@ -129,6 +143,16 @@ describe('manageAccount', () => {
     ).rejects.toEqual(new ApiError('Username already taken'));
   });
 
+  it('treats a request without a valid sign-in as the sign-in reconnecting, without announcing anything', async () => {
+    const listener = vi.fn();
+    const stop = notAllowed.subscribe(listener);
+    const error = new FunctionsHttpError(new Response(JSON.stringify({ error: 'Not signed in' }), { status: 401 }));
+    const { client } = functionsClient({ data: null, error });
+    await expect(createApi(client).manageAccount({ action: 'set_active', userId: 'u1', active: true })).rejects.toThrow(SESSION_ERROR);
+    expect(listener).not.toHaveBeenCalled();
+    stop();
+  });
+
   it('treats a refusal as "Not allowed" and announces it', async () => {
     const listener = vi.fn();
     const stop = notAllowed.subscribe(listener);
@@ -187,7 +211,7 @@ describe('photo calls', () => {
     expect(photoFetch.mock.calls[0][1].method).toBe('DELETE');
   });
 
-  it("shows the server's message, and treats 401 and 403 as \"Not allowed\"", async () => {
+  it("shows the server's message; 401 is the sign-in reconnecting, 403 is \"Not allowed\"", async () => {
     const listener = vi.fn();
     const stop = notAllowed.subscribe(listener);
     const replies = [json({ error: 'Candidate #12 is not waiting' }, 400), json({ error: 'Sign in first.' }, 401), json({ error: 'Not allowed' }, 403)];
@@ -195,9 +219,9 @@ describe('photo calls', () => {
     const jpeg = new Blob(['jpeg']);
 
     await expect(api.uploadPhoto('c12', jpeg)).rejects.toEqual(new ApiError('Candidate #12 is not waiting'));
-    await expect(api.uploadPhoto('c12', jpeg)).rejects.toEqual(new ApiError(NOT_ALLOWED));
+    await expect(api.uploadPhoto('c12', jpeg)).rejects.toEqual(new ApiError(SESSION_ERROR));
     await expect(api.photoBlob('c12', 'v1')).rejects.toEqual(new ApiError(NOT_ALLOWED));
-    expect(listener).toHaveBeenCalledTimes(2);
+    expect(listener).toHaveBeenCalledTimes(1); // only the 403
     stop();
   });
 

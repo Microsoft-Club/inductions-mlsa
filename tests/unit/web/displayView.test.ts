@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { displayColumns, newlySentIn, selectPanels } from '../../../src/display/displayView.ts';
+import { displayColumns, displayRows, newlySentIn, selectPanels } from '../../../src/display/displayView.ts';
 import type { DisplayPanel } from '../../../src/lib/types.ts';
 
 const tile = (id: string, current: DisplayPanel['current'] = null): DisplayPanel => ({ id, name: id, current, lined_up: [] });
@@ -9,6 +9,12 @@ const ali = { number: 12, name: 'Ali', started_at: '2026-09-26T10:05:00Z' };
 describe('displayColumns', () => {
   it('fits 1–4 panels on a 16:9 screen', () => {
     expect([0, 1, 2, 3, 4, 5, 6, 7, 9].map(displayColumns)).toEqual([1, 1, 2, 3, 2, 3, 3, 4, 4]);
+  });
+});
+
+describe('displayRows', () => {
+  it('is one row up to 3 panels, then two, then more', () => {
+    expect([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(displayRows)).toEqual([1, 1, 1, 1, 2, 2, 2, 2, 2, 3]);
   });
 });
 

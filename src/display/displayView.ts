@@ -8,6 +8,11 @@ export function displayColumns(panelCount: number): number {
   return 4;
 }
 
+/** Rows of tiles; the screen's height is shared out evenly between them. */
+export function displayRows(panelCount: number): number {
+  return Math.max(1, Math.ceil(panelCount / displayColumns(panelCount)));
+}
+
 /** Panels whose current candidate changed since the previous snapshot. Nothing flashes on the first load. */
 export function newlySentIn(previous: DisplayPanel[] | undefined, next: DisplayPanel[]): string[] {
   if (!previous) return [];

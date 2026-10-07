@@ -6,7 +6,7 @@ import { buttonClasses } from '../components/ActionButton.tsx';
 import { ConnectionBanner } from '../components/ConnectionBanner.tsx';
 import { FullPageMessage } from '../components/FullPageMessage.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
-import { useLiveSnapshot } from '../lib/useLiveSnapshot.ts';
+import { STAFF_RESYNC_MS, useLiveSnapshot } from '../lib/useLiveSnapshot.ts';
 import { CandidateListDialog } from './CandidateListDialog.tsx';
 import { FormWarnings } from './FormWarnings.tsx';
 import { ImportDialog } from './ImportDialog.tsx';
@@ -21,7 +21,7 @@ export function QueuePage() {
   const api = useApi();
   const { state } = useAuth();
   const subscribe = useMemo(() => api.subscribeBoard(), [api]);
-  const { data: board, error, status, reload } = useLiveSnapshot(api.boardSnapshot, subscribe);
+  const { data: board, error, status, reload } = useLiveSnapshot(api.boardSnapshot, subscribe, STAFF_RESYNC_MS);
   const [importing, setImporting] = useState(false);
   const role = state.status === 'signed_in' ? state.profile.role : 'queue_manager';
 

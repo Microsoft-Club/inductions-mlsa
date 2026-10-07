@@ -59,7 +59,7 @@ export function PanelCard({ panel, targetMinutes, role }: PanelCardProps) {
               >
                 End interview
               </ActionButton>
-              <ActionButton action={() => api.undoSendIn(current.interview_id)}>Undo send-in</ActionButton>
+              <UndoSendIn current={current} panelName={panel.name} />
             </div>
           </div>
         ) : lastEnded ? (
@@ -120,6 +120,27 @@ export function PanelCard({ panel, targetMinutes, role }: PanelCardProps) {
         )}
       </div>
     </section>
+  );
+}
+
+/**
+ * Undo send-in is for "the wrong person went in", and sits next to End interview, so it asks first and
+ * says how long the interview has run. The server refuses it once the panel has evaluated.
+ */
+function UndoSendIn({ current, panelName }: { current: NonNullable<BoardPanel['current']>; panelName: string }) {
+  const api = useApi();
+  const { nowMs, offsetMs } = useClock();
+  const running = formatElapsed(elapsedMs(current.started_at, nowMs, offsetMs));
+  return (
+    <ActionButton
+      confirm={
+        `Undo send-in for #${current.number} ${current.name}? The interview (running ${running}) is cancelled and they go back ` +
+        `to the top of ${panelName}'s line. Use this only if the wrong person went in; to finish an interview, press End interview.`
+      }
+      action={() => api.undoSendIn(current.interview_id)}
+    >
+      Undo send-in
+    </ActionButton>
   );
 }
 
