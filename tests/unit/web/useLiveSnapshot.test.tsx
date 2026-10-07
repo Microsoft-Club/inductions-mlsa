@@ -101,6 +101,35 @@ describe('useLiveSnapshot', () => {
     await waitFor(() => expect(load.mock.calls.length).toBeGreaterThanOrEqual(3));
   });
 
+  it('skips polls while the page is hidden, and reloads the moment it is shown again', async () => {
+    let visibility: DocumentVisibilityState = 'hidden';
+    const spy = vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibility);
+    try {
+      const channel = fakeChannel();
+      const load = vi.fn(async () => 1);
+      renderHook(() => useLiveSnapshot(load, channel.subscribe, 20));
+      await waitFor(() => expect(load).toHaveBeenCalledTimes(1)); // the first load still happens
+      await new Promise((r) => setTimeout(r, 120));
+      expect(load).toHaveBeenCalledTimes(1); // no polls while hidden
+
+      visibility = 'visible';
+      act(() => void document.dispatchEvent(new Event('visibilitychange')));
+      await waitFor(() => expect(load).toHaveBeenCalledTimes(2)); // at once on being shown
+      await waitFor(() => expect(load.mock.calls.length).toBeGreaterThanOrEqual(4)); // and polling again
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('reloads when the page comes back into view even without polling', async () => {
+    const channel = fakeChannel();
+    const load = vi.fn(async () => 1);
+    renderHook(() => useLiveSnapshot(load, channel.subscribe));
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(1));
+    act(() => void document.dispatchEvent(new Event('visibilitychange')));
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+  });
+
   it('stops listening on unmount and ignores later events', async () => {
     const channel = fakeChannel();
     const load = vi.fn(async () => 1);

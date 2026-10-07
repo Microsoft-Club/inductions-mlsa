@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useApi } from '../lib/ApiProvider.tsx';
 import type { ChatMessage } from '../lib/types.ts';
-import { useLiveSnapshot, type LiveSnapshot } from '../lib/useLiveSnapshot.ts';
+import { STAFF_RESYNC_MS, useLiveSnapshot, type LiveSnapshot } from '../lib/useLiveSnapshot.ts';
 
 export interface InterviewLive {
   messages: ChatMessage[];
@@ -20,5 +20,5 @@ export function useInterviewLive(interviewId: string): LiveSnapshot<InterviewLiv
     return { messages, evaluationCount };
   }, [api, interviewId]);
   const subscribe = useMemo(() => api.subscribeInterview(interviewId), [api, interviewId]);
-  return useLiveSnapshot(load, subscribe);
+  return useLiveSnapshot(load, subscribe, STAFF_RESYNC_MS);
 }

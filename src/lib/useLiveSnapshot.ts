@@ -4,6 +4,12 @@ import type { Subscribe } from './realtime.ts';
 
 export type LiveStatus = 'connecting' | 'live' | 'reconnecting';
 
+/**
+ * Staff screens also reload this often, like the projector: a realtime event lost on the way (a busy
+ * server, Wi-Fi that drops one frame) would otherwise leave a board that looks live but isn't.
+ */
+export const STAFF_RESYNC_MS = 30_000;
+
 export interface LiveSnapshot<T> {
   /** undefined until the first successful load; then always the latest good snapshot. */
   data: T | undefined;
@@ -15,7 +21,8 @@ export interface LiveSnapshot<T> {
 
 /**
  * Loads a snapshot and reloads it when the realtime channel (re)subscribes, when it delivers an
- * event, and every `pollMs` if given. Loads never overlap: events that arrive during a load cause
+ * event, when the page comes back into view (a phone unlocked, a laptop woken), and every `pollMs` if
+ * given while the page is in view. Loads never overlap: events that arrive during a load cause
  * exactly one more load afterwards. A channel that hasn't joined after `connectTimeoutMs` is
  * reported as reconnecting, so a stuck subscription never looks healthy. `load` and `subscribe`
  * must be stable (useCallback/useMemo).
@@ -91,9 +98,19 @@ export function useLiveSnapshot<T>(
       if (channelUp) setStatus('live');
       reload();
     };
+    // A hidden page (locked phone, sleeping laptop, background tab) skips its polls and catches up the
+    // moment it is shown again, before its connection has even noticed it may have died meanwhile.
+    const visible = () => {
+      if (document.visibilityState === 'visible') reload();
+    };
     window.addEventListener('offline', offline);
     window.addEventListener('online', online);
-    const timer = pollMs ? setInterval(reload, pollMs) : undefined;
+    document.addEventListener('visibilitychange', visible);
+    const timer = pollMs
+      ? setInterval(() => {
+          if (document.visibilityState !== 'hidden') reload();
+        }, pollMs)
+      : undefined;
     const stuck = setTimeout(() => {
       if (!joined && generation === state.generation) setStatus('reconnecting');
     }, connectTimeoutMs);
@@ -102,6 +119,7 @@ export function useLiveSnapshot<T>(
       stop();
       window.removeEventListener('offline', offline);
       window.removeEventListener('online', online);
+      document.removeEventListener('visibilitychange', visible);
       if (timer) clearInterval(timer);
       clearTimeout(stuck);
     };

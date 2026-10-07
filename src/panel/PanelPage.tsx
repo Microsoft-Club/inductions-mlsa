@@ -7,7 +7,7 @@ import { ConnectionBanner } from '../components/ConnectionBanner.tsx';
 import { FullPageMessage } from '../components/FullPageMessage.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
 import type { BoardPanel, BoardSnapshot, Criterion, InterviewWithPanel, MyEvaluationWithInterview, PanelInterview, Profile } from '../lib/types.ts';
-import { useLiveSnapshot } from '../lib/useLiveSnapshot.ts';
+import { STAFF_RESYNC_MS, useLiveSnapshot } from '../lib/useLiveSnapshot.ts';
 import { EvaluatedCandidates } from './EvaluatedCandidates.tsx';
 import { FindCandidate } from './FindCandidate.tsx';
 import { InterviewWorkspace } from './InterviewWorkspace.tsx';
@@ -23,7 +23,7 @@ export function PanelPage() {
   const api = useApi();
   const { state } = useAuth();
   const subscribe = useMemo(() => api.subscribeBoard(), [api]);
-  const { data: board, error, status, reload } = useLiveSnapshot(api.boardSnapshot, subscribe);
+  const { data: board, error, status, reload } = useLiveSnapshot(api.boardSnapshot, subscribe, STAFF_RESYNC_MS);
 
   useEffect(() => {
     document.title = 'Panel · MLSA Induction';

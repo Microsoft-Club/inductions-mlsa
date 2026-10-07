@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { ActionButton } from '../components/ActionButton.tsx';
 import { ActionProvider } from '../components/ActionProvider.tsx';
 import { useApi } from '../lib/ApiProvider.tsx';
-import { useLiveSnapshot } from '../lib/useLiveSnapshot.ts';
+import { STAFF_RESYNC_MS, useLiveSnapshot } from '../lib/useLiveSnapshot.ts';
 
 /**
  * Admins can add panels, delete any panel (including Panel 1 and Panel 2), and take someone out of a
@@ -11,7 +11,7 @@ import { useLiveSnapshot } from '../lib/useLiveSnapshot.ts';
 export function PanelsSection() {
   const api = useApi();
   const subscribe = useMemo(() => api.subscribeBoard(), [api]);
-  const { data: board, error, reload } = useLiveSnapshot(api.boardSnapshot, subscribe);
+  const { data: board, error, reload } = useLiveSnapshot(api.boardSnapshot, subscribe, STAFF_RESYNC_MS);
 
   return (
     <section aria-labelledby="panels-title" className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
