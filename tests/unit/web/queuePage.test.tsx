@@ -6,7 +6,7 @@ import { DISABLED_NOTICE } from '../../../src/auth/AuthProvider.tsx';
 import { ApiError } from '../../../src/lib/api.ts';
 import { notAllowed } from '../../../src/lib/notAllowed.ts';
 import type { Role } from '../../../src/lib/types.ts';
-import { board, boardPanel, ended, interview } from './fixtures.ts';
+import { board, boardPanel, candidateRow, ended, interview } from './fixtures.ts';
 import { fakeApi, fakeAuth, renderApp } from './helpers.tsx';
 
 const queueManager = (role: Role = 'queue_manager') =>
@@ -111,6 +111,50 @@ describe('QueuePage', () => {
     await userEvent.clear(screen.getByRole('searchbox', { name: 'Search candidates' }));
     await userEvent.type(screen.getByRole('searchbox', { name: 'Search candidates' }), '#20');
     expect(await screen.findByText('2025020 · Waiting · pool #1')).toBeInTheDocument();
+  });
+
+  it('closes the search results on a click or Tab elsewhere, and brings them back when the box is used again', async () => {
+    const api = fakeApi({
+      listCandidates: vi.fn(async () => [{ id: 'c5', number: 5, full_name: 'Hina Tariq', reg_number: '2025005', status: 'registered' as const }]),
+    });
+    await openQueue(api);
+    const box = screen.getByRole('searchbox', { name: 'Search candidates' });
+    await userEvent.type(box, 'hina');
+    await screen.findByRole('list', { name: 'Search results' });
+
+    await userEvent.click(screen.getByRole('region', { name: 'Panel 1' }));
+    expect(screen.queryByRole('list', { name: 'Search results' })).toBeNull();
+    expect(box).toHaveValue('hina');
+
+    await userEvent.click(box);
+    expect(await screen.findByRole('list', { name: 'Search results' })).toHaveTextContent('Hina Tariq');
+    act(() => screen.getByRole('button', { name: 'Import CSV' }).focus());
+    expect(screen.queryByRole('list', { name: 'Search results' })).toBeNull();
+
+    await userEvent.type(box, '{Backspace}');
+    expect(await screen.findByRole('list', { name: 'Search results' })).toHaveTextContent('Hina Tariq');
+    await userEvent.keyboard('{Escape}');
+    expect(box).toHaveValue('');
+    expect(screen.queryByRole('list', { name: 'Search results' })).toBeNull();
+  });
+
+  it("keeps an admin's search results while a candidate's application, or its photo, is open on top", async () => {
+    URL.createObjectURL = vi.fn(() => 'blob:1');
+    const api = fakeApi({
+      listCandidates: vi.fn(async () => [{ id: 'c5', number: 5, full_name: 'Hina Tariq', reg_number: '2025005', status: 'registered' as const }]),
+      candidate: vi.fn(async () => candidateRow({ id: 'c5', number: 5, full_name: 'Hina Tariq', photo_taken_at: 'v1' })),
+    });
+    await openQueue(api, 'admin');
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search candidates' }), 'hina');
+    const results = await screen.findByRole('list', { name: 'Search results' });
+    await userEvent.click(within(results).getByRole('button', { name: '#5 Hina Tariq' }));
+    const application = await screen.findByRole('dialog', { name: 'Application of #5 Hina Tariq' });
+
+    await userEvent.click(await within(application).findByRole('button', { name: 'Enlarge photo of Hina Tariq' }));
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Photo of Hina Tariq' })).getByRole('button', { name: 'Close' }));
+    await userEvent.click(within(application).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('list', { name: 'Search results' })).toHaveTextContent('Hina Tariq');
   });
 
   it('reloads when a board event arrives and shows a banner while reconnecting', async () => {
