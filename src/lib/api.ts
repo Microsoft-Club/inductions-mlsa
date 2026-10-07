@@ -81,8 +81,10 @@ export interface Api {
   /** null = not sitting in any panel. */
   setMyPanel(panelId: string | null): Promise<void>;
   candidate(candidateId: string): Promise<Candidate>;
-  /** The panel's interviews, newest first (cancelled ones left out). */
+  /** The panel's latest 30 interviews, newest first (cancelled ones left out). */
   panelInterviews(panelId: string): Promise<PanelInterview[]>;
+  /** The panel's ended interviews the signed-in person hasn't evaluated, however long ago; newest first. */
+  pendingInterviews(panelId: string): Promise<PanelInterview[]>;
   /** These interviews with their panel, if they are in the induction and weren't cancelled. */
   interviewsById(ids: string[], inductionId: string): Promise<InterviewWithPanel[]>;
   criteria(inductionId: string): Promise<Criterion[]>;
@@ -249,6 +251,7 @@ export function createApi(
           .limit(30)
           .abortSignal(signal),
       ),
+    pendingInterviews: (panelId) => rpc<PanelInterview[]>('my_pending_interviews', { p_panel_id: panelId }),
     interviewsById: (ids, inductionId) =>
       send<InterviewWithPanel[]>((signal) =>
         client

@@ -26,6 +26,17 @@ const fromPanelInterview = (i: PanelInterview, inThisPanel: boolean): ShownInter
   inThisPanel,
 });
 
+/**
+ * The panel's latest interviews plus every older one still waiting for this panelist's evaluation
+ * (the latest list stops at 30, so a busy panel would otherwise lose them), newest first.
+ */
+export function withPending(recent: PanelInterview[], pending: PanelInterview[]): PanelInterview[] {
+  const loaded = new Set(recent.map((i) => i.id));
+  const older = pending.filter((i) => !loaded.has(i.id));
+  if (older.length === 0) return recent;
+  return [...recent, ...older].sort((a, b) => parseServerTime(b.started_at) - parseServerTime(a.started_at));
+}
+
 /** An interview you sat in on a panel you've since left, still waiting for your evaluation. */
 export type LeftBehind = PanelInterview & { panelName: string };
 
