@@ -143,7 +143,7 @@ export function CaptureView({ candidate, currentVersion, onSaved, onClose }: Cap
           <img src={photo.url} alt={`New photo of ${candidate.name}`} className="max-h-[60vh] w-full rounded-lg object-contain" />
         ) : (
           <>
-            {currentVersion && <CandidatePhoto candidateId={candidate.id} version={currentVersion} name={candidate.name} size="xl" />}
+            {currentVersion && <CandidatePhoto candidateId={candidate.id} version={currentVersion} name={candidate.name} size="xl" expandable />}
             {!phone && camera !== 'unavailable' && (
               <video ref={video} autoPlay playsInline muted aria-label="Camera preview" className="w-full rounded-lg bg-slate-900" />
             )}

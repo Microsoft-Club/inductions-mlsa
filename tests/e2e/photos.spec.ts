@@ -132,6 +132,13 @@ test('photos from check-in to the panel, and deleting them all', async ({ browse
   await expect(qm.getByRole('alertdialog', { name: 'No photo yet' })).toHaveCount(0);
   await expect(panelist.getByRole('heading', { name: `#${ready.number} ${ready.full_name}` })).toBeVisible();
   await expect(panelist.getByRole('img', { name: `Photo of ${ready.full_name}` }).first()).toBeVisible();
+  // A click on the photo shows it full size, all 800 px it was kept at; Escape closes it.
+  await panelist.getByRole('button', { name: `Enlarge photo of ${ready.full_name}` }).first().click();
+  const fullSize = panelist.getByRole('dialog', { name: `Photo of ${ready.full_name}` }).getByRole('img');
+  await expect(fullSize).toBeVisible();
+  expect(await fullSize.evaluate((img: HTMLImageElement) => img.getBoundingClientRect().width)).toBe(800);
+  await panelist.keyboard.press('Escape');
+  await expect(fullSize).toBeHidden();
   await endCurrentInterview(qmApi);
 
   // Without a photo, sent anyway: the panelist sees the placeholder.
