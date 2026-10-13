@@ -12,6 +12,9 @@ import {
   filterRows,
   formatAverage,
   formatTally,
+  readFilters,
+  readSort,
+  resultsSearch,
   safeCell,
   sortRows,
 } from '../../../src/results/resultsView.ts';
@@ -62,6 +65,27 @@ describe('sortRows and filterRows', () => {
     expect(only('B36')).toEqual([2, 3]);
     expect(only('B35')).toEqual([1]);
     expect(only('all')).toEqual([1, 2, 3]);
+  });
+});
+
+describe('the filters and sort in the address', () => {
+  it('writes only what differs from the whole table by number, and reads it back', () => {
+    expect(resultsSearch({ status: 'all', decision: 'all', batch: 'all', query: '' }, { key: 'number', dir: 'asc' })).toBe('');
+    const filters = { status: 'interviewed', decision: 'selected', batch: 'B36', query: 'Sara & Ali' } as const;
+    const sort = { key: 'fit:dev', dir: 'desc' } as const;
+    const search = resultsSearch(filters, sort);
+    expect(search).toBe('?status=interviewed&decision=selected&batch=B36&q=Sara+%26+Ali&sort=fit%3Adev&dir=desc');
+    expect(readFilters(search)).toEqual(filters);
+    expect(readSort(search)).toEqual(sort);
+  });
+
+  it('leaves anything missing or unknown at its default', () => {
+    expect(readFilters('')).toEqual({ status: 'all', decision: 'all', batch: 'all', query: '' });
+    expect(readFilters('?status=hired&decision=constructor&batch=')).toEqual({ status: 'all', decision: 'all', batch: 'all', query: '' });
+    expect(readSort('?sort=reg_number&dir=desc')).toEqual({ key: 'number', dir: 'asc' });
+    expect(readSort('?sort=fit:')).toEqual({ key: 'number', dir: 'asc' });
+    expect(readSort('?sort=score')).toEqual({ key: 'score', dir: 'desc' });
+    expect(readSort('?sort=full_name&dir=sideways')).toEqual({ key: 'full_name', dir: 'asc' });
   });
 });
 

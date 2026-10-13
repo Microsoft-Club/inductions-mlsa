@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { ActionButton, buttonClasses } from '../components/ActionButton.tsx';
 import { ActionProvider } from '../components/ActionProvider.tsx';
 import { FullPageMessage } from '../components/FullPageMessage.tsx';
@@ -18,11 +18,15 @@ import {
   candidatesCsv,
   csvFileName,
   DECISION_LABELS,
+  defaultSortDir,
   evaluationsCsv,
   filterRows,
   formatAverage,
   formatTally,
+  readFilters,
+  readSort,
   RECOMMENDATION_POINTS,
+  resultsSearch,
   sortRows,
   STATUS_LABELS,
   type Filters,
@@ -37,8 +41,17 @@ export function ResultsPage() {
   const [criteria, setCriteria] = useState<Criterion[]>([]);
   const [induction, setInduction] = useState<InductionSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Filters>({ status: 'all', decision: 'all', batch: 'all', query: '' });
-  const [sort, setSort] = useState<SortState>({ key: 'number', dir: 'asc' });
+  // Filters and sort start from the address and are copied back to it, so coming back from a candidate finds
+  // them as they were. The page's state leads: router updates run in a transition, which would make the
+  // Find box lose its cursor if it read the address.
+  const navigate = useNavigate();
+  const { search: address } = useLocation();
+  const [filters, setFilters] = useState<Filters>(() => readFilters(address));
+  const [sort, setSort] = useState<SortState>(() => readSort(address));
+  const search = resultsSearch(filters, sort);
+  useEffect(() => {
+    if (address !== search) void navigate({ search }, { replace: true });
+  }, [address, search, navigate]);
 
   // Reloads can overlap (Refresh, and one after every decision); only the newest one may land.
   const generation = useRef(0);
@@ -83,7 +96,7 @@ export function ResultsPage() {
   const shown = sortRows(filterRows(rows, filters), sort, average);
   const decided = (d: Decision) => rows.filter((r) => r.decision === d).length;
   const sortBy = (key: SortKey) =>
-    setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'number' || key === 'full_name' ? 'asc' : 'desc' }));
+    setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: defaultSortDir(key) }));
 
   return (
     <ActionProvider onSettled={() => void load()}>
@@ -199,7 +212,7 @@ export function ResultsPage() {
                 <tr key={row.candidate_id}>
                   <td className="px-3 py-2 tabular-nums">#{row.number}</td>
                   <td className="px-3 py-2">
-                    <Link className="font-medium text-brand-700 hover:underline" to={`/results/${row.candidate_id}`}>
+                    <Link className="font-medium text-brand-700 hover:underline" to={`/results/${row.candidate_id}`} state={{ back: `/results${search}` }}>
                       <bdi>{row.full_name}</bdi>
                     </Link>
                     <div className="text-xs text-slate-500">

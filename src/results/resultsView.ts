@@ -73,6 +73,14 @@ export interface SortState {
   dir: 'asc' | 'desc';
 }
 
+const SORT_KEYS: readonly string[] = ['number', 'full_name', 'evaluation_count', 'general_avg', 'score', 'decision'];
+const isSortKey = (key: string): key is SortKey => SORT_KEYS.includes(key) || /^fit:.+/.test(key);
+
+/** A column's first click: number and name A→Z, scores and the decision highest first. */
+export function defaultSortDir(key: SortKey): SortState['dir'] {
+  return key === 'number' || key === 'full_name' ? 'asc' : 'desc';
+}
+
 function sortValue(row: ResultRow, key: SortKey, average: number | null): number | string | null {
   if (key.startsWith('fit:')) return row.criteria_avgs[key.slice(4)] ?? null;
   if (key === 'full_name') return row.full_name.toLocaleLowerCase();
@@ -119,6 +127,46 @@ export function filterRows(rows: ResultRow[], { status, decision, batch, query }
       (batch === 'all' || row.batch === batch) &&
       (!q || row.number === exactNumber || row.reg_number.includes(reg) || row.full_name.toLocaleLowerCase().includes(name)),
   );
+}
+
+// The table's filters and sort are kept in the address (/results?status=interviewed&sort=general_avg&dir=desc),
+// so Back, "← All results" and a reload find it as it was. Defaults are left out of it.
+
+/** The filters in `search`; anything missing or unknown is All. */
+export function readFilters(search: string): Filters {
+  const params = new URLSearchParams(search);
+  const status = params.get('status') ?? '';
+  const decision = params.get('decision') ?? '';
+  return {
+    status: Object.hasOwn(STATUS_LABELS, status) ? (status as CandidateStatus) : 'all',
+    decision: Object.hasOwn(DECISION_LABELS, decision) ? (decision as Decision) : 'all',
+    batch: params.get('batch') || 'all',
+    query: params.get('q') ?? '',
+  };
+}
+
+/** The sort in `search`; by number when it has none. */
+export function readSort(search: string): SortState {
+  const params = new URLSearchParams(search);
+  const key = params.get('sort') ?? '';
+  if (!isSortKey(key)) return { key: 'number', dir: 'asc' };
+  const dir = params.get('dir');
+  return { key, dir: dir === 'asc' || dir === 'desc' ? dir : defaultSortDir(key) };
+}
+
+/** The search part of the address for this table, e.g. "?status=interviewed", or "" for the whole table by number. */
+export function resultsSearch(filters: Filters, sort: SortState): string {
+  const params = new URLSearchParams();
+  if (filters.status !== 'all') params.set('status', filters.status);
+  if (filters.decision !== 'all') params.set('decision', filters.decision);
+  if (filters.batch !== 'all') params.set('batch', filters.batch);
+  if (filters.query) params.set('q', filters.query);
+  if (sort.key !== 'number' || sort.dir !== 'asc') {
+    params.set('sort', sort.key);
+    params.set('dir', sort.dir);
+  }
+  const search = params.toString();
+  return search ? `?${search}` : '';
 }
 
 /** Each batch candidates chose on the form, once and in order (blank answers left out). */
