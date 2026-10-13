@@ -71,6 +71,26 @@ describe('the results page', () => {
     expect(screen.getByRole('columnheader', { name: 'General avg' })).toHaveAttribute('aria-sort', 'descending');
   });
 
+  it('scores each candidate from their votes, explains the score, and sorts by it highest first', async () => {
+    await openResults('/results', {
+      resultsTable: vi.fn(async () => [
+        resultRow({ candidate_id: 'c7', number: 7, recommendations: { yes: 4 }, evaluation_count: 4 }),
+        resultRow({ candidate_id: 'c2', number: 2, full_name: 'Ali Raza', recommendations: {}, evaluation_count: 0, general_avg: null }),
+        resultRow({ candidate_id: 'c9', number: 9, full_name: 'Bilal Khan', recommendations: { strong_yes: 3 }, evaluation_count: 3 }),
+      ]),
+    });
+    await screen.findByRole('table', { name: 'Results' });
+    // The induction's average vote is (12 + 12) / 7; #7 scores (12 + 3.43) / 5, #9 (12 + 3.43) / 4.
+    const column = screen.getAllByRole('columnheader').findIndex((th) => th.textContent === 'Score');
+    expect(column).toBeGreaterThan(-1);
+    expect(bodyRows().map((row) => within(row).getAllByRole('cell')[column].textContent)).toEqual(['—', '3.09', '3.86']);
+    expect(screen.getByText(/Strong Yes 4 · Yes 3 · Maybe 1 · No 0, averaged with one extra vote at the induction's average \(3\.43\)/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Score' }));
+    expect(numbers()).toEqual(['#9', '#7', '#2']);
+    expect(screen.getByRole('columnheader', { name: 'Score' })).toHaveAttribute('aria-sort', 'descending');
+  });
+
   it('filters by batch, and shows each candidate\'s batch', async () => {
     await openResults('/results', {
       resultsTable: vi.fn(async () => [
