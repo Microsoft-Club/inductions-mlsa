@@ -29,31 +29,74 @@ export function formatAverage(value: number | null | undefined): string {
   return value === null || value === undefined ? '—' : String(Number(value.toFixed(2)));
 }
 
-export type SortKey = 'number' | 'full_name' | 'evaluation_count' | 'general_avg' | 'decision' | `fit:${string}`;
+/** Points per vote in the score. The widest gap is between Yes and Maybe, where "take them" turns into "don't". */
+export const RECOMMENDATION_POINTS: Record<Recommendation, number> = { strong_yes: 4, yes: 3, maybe: 1, no: 0 };
+
+function votes(recommendations: ResultRow['recommendations']): { count: number; points: number } {
+  let count = 0;
+  let points = 0;
+  for (const r of RECOMMENDATIONS) {
+    const n = recommendations[r.value] ?? 0;
+    count += n;
+    points += n * RECOMMENDATION_POINTS[r.value];
+  }
+  return { count, points };
+}
+
+/** The average points per vote across every candidate in the induction; null before anyone has voted. */
+export function averageVotePoints(rows: ResultRow[]): number | null {
+  let count = 0;
+  let points = 0;
+  for (const row of rows) {
+    const v = votes(row.recommendations);
+    count += v.count;
+    points += v.points;
+  }
+  return count > 0 ? points / count : null;
+}
+
+/**
+ * The candidate's average points per vote, counting one extra vote at the induction's average, so one
+ * panelist's Strong Yes can't outrank a unanimous panel and a bigger panel doesn't win by headcount alone.
+ * Rounded as shown, so candidates who look tied are tied; null without votes.
+ */
+export function candidateScore(row: ResultRow, average: number | null): number | null {
+  const { count, points } = votes(row.recommendations);
+  if (count === 0 || average === null) return null;
+  return Math.round(((points + average) / (count + 1)) * 100) / 100;
+}
+
+export type SortKey = 'number' | 'full_name' | 'evaluation_count' | 'general_avg' | 'score' | 'decision' | `fit:${string}`;
 
 export interface SortState {
   key: SortKey;
   dir: 'asc' | 'desc';
 }
 
-function sortValue(row: ResultRow, key: SortKey): number | string | null {
+function sortValue(row: ResultRow, key: SortKey, average: number | null): number | string | null {
   if (key.startsWith('fit:')) return row.criteria_avgs[key.slice(4)] ?? null;
   if (key === 'full_name') return row.full_name.toLocaleLowerCase();
   if (key === 'decision') return DECISION_LABELS[row.decision];
+  if (key === 'score') return candidateScore(row, average);
   return row[key as 'number' | 'evaluation_count' | 'general_avg'];
 }
 
-/** Sorted by one column; rows without a value (no scores yet) always go last; ties by number. */
-export function sortRows(rows: ResultRow[], sort: SortState): ResultRow[] {
+/**
+ * Sorted by one column; rows without a value (no scores yet) always go last; ties by number, except equal
+ * scores, which go by the general average first. `average` is averageVotePoints of the whole table.
+ */
+export function sortRows(rows: ResultRow[], sort: SortState, average: number | null = null): ResultRow[] {
   const direction = sort.dir === 'asc' ? 1 : -1;
-  return [...rows].sort((a, b) => {
-    const x = sortValue(a, sort.key);
-    const y = sortValue(b, sort.key);
-    if (x === null || y === null) return x === y ? a.number - b.number : x === null ? 1 : -1;
-    if (x < y) return -direction;
-    if (x > y) return direction;
-    return a.number - b.number;
-  });
+  const compare = (x: number | string | null, y: number | string | null) => {
+    if (x === null || y === null) return x === y ? 0 : x === null ? 1 : -1;
+    return x < y ? -direction : x > y ? direction : 0;
+  };
+  return [...rows].sort(
+    (a, b) =>
+      compare(sortValue(a, sort.key, average), sortValue(b, sort.key, average)) ||
+      (sort.key === 'score' ? compare(a.general_avg, b.general_avg) : 0) ||
+      a.number - b.number,
+  );
 }
 
 export interface Filters {

@@ -7,11 +7,14 @@ import { errorMessage } from '../lib/api.ts';
 import { useApi } from '../lib/ApiProvider.tsx';
 import type { CandidateStatus, Criterion, Decision, InductionSettings, ResultRow } from '../lib/types.ts';
 import { rankedPreferences } from '../panel/applicationView.ts';
+import { RECOMMENDATIONS } from '../panel/evaluation.ts';
 import { DecisionSelect } from './DecisionSelect.tsx';
 import { downloadCsv } from './download.ts';
 import {
+  averageVotePoints,
   batchLabel,
   batchOptions,
+  candidateScore,
   candidatesCsv,
   csvFileName,
   DECISION_LABELS,
@@ -19,6 +22,7 @@ import {
   filterRows,
   formatAverage,
   formatTally,
+  RECOMMENDATION_POINTS,
   sortRows,
   STATUS_LABELS,
   type Filters,
@@ -74,7 +78,9 @@ export function ResultsPage() {
   }
 
   const fit = criteria.filter((c) => c.category === 'team_fit');
-  const shown = sortRows(filterRows(rows, filters), sort);
+  // Scores lean on the whole induction's average vote, whatever the filters show.
+  const average = averageVotePoints(rows);
+  const shown = sortRows(filterRows(rows, filters), sort, average);
   const decided = (d: Decision) => rows.filter((r) => r.decision === d).length;
   const sortBy = (key: SortKey) =>
     setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'number' || key === 'full_name' ? 'asc' : 'desc' }));
@@ -161,6 +167,13 @@ export function ResultsPage() {
             Showing {shown.length} of {rows.length}
           </span>
         </div>
+        {average !== null && (
+          <p className="text-xs text-slate-500">
+            Score: {RECOMMENDATIONS.map((r) => `${r.label} ${RECOMMENDATION_POINTS[r.value]}`).join(' · ')}, averaged with one extra vote
+            at the induction's average ({formatAverage(average)}), so a single vote or a bigger panel doesn't decide the order. Equal
+            scores go by General avg.
+          </p>
+        )}
 
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table aria-label="Results" className="w-full text-left text-sm">
@@ -177,6 +190,7 @@ export function ResultsPage() {
                   <SortHeader key={c.key} label={c.label} sortKey={`fit:${c.key}`} sort={sort} onSort={sortBy} />
                 ))}
                 <th className="px-3 py-2">Recommendations</th>
+                <SortHeader label="Score" sortKey="score" sort={sort} onSort={sortBy} />
                 <SortHeader label="Decision" sortKey="decision" sort={sort} onSort={sortBy} />
               </tr>
             </thead>
@@ -206,6 +220,7 @@ export function ResultsPage() {
                     </td>
                   ))}
                   <td className="px-3 py-2 text-xs">{formatTally(row.recommendations)}</td>
+                  <td className="px-3 py-2 font-medium tabular-nums">{formatAverage(candidateScore(row, average))}</td>
                   <td className="px-3 py-2">
                     <DecisionSelect candidateId={row.candidate_id} number={row.number} name={row.full_name} decision={row.decision} />
                   </td>

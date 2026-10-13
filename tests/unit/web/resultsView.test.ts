@@ -1,9 +1,11 @@
 import Papa from 'papaparse';
 import { describe, expect, it } from 'vitest';
-import type { EvaluationExportRow } from '../../../src/lib/types.ts';
+import type { EvaluationExportRow, ResultRow } from '../../../src/lib/types.ts';
 import {
+  averageVotePoints,
   batchLabel,
   batchOptions,
+  candidateScore,
   candidatesCsv,
   csvFileName,
   evaluationsCsv,
@@ -60,6 +62,39 @@ describe('sortRows and filterRows', () => {
     expect(only('B36')).toEqual([2, 3]);
     expect(only('B35')).toEqual([1]);
     expect(only('all')).toEqual([1, 2, 3]);
+  });
+});
+
+describe('the score', () => {
+  const votes = (recommendations: ResultRow['recommendations']) => resultRow({ recommendations });
+
+  it('averages the points of every vote in the induction', () => {
+    expect(averageVotePoints([votes({ strong_yes: 1, no: 1 }), votes({ yes: 2 }), votes({})])).toBe(2.5); // (4 + 0 + 3 + 3) / 4
+    expect(averageVotePoints([votes({})])).toBeNull();
+  });
+
+  it("counts one extra vote at the induction's average, so a single vote or a bigger panel can't decide alone", () => {
+    const score = (recommendations: ResultRow['recommendations']) => candidateScore(votes(recommendations), 2.5);
+    expect(score({ strong_yes: 3 })).toBe(3.63);
+    expect(score({ strong_yes: 2 })).toBe(3.5);
+    expect(score({ strong_yes: 1 })).toBe(3.25); // one panelist's Strong Yes stays below a unanimous pair
+    expect(score({ yes: 4 })).toBe(2.9); // four Yes stay below three Strong Yes
+    expect(score({ strong_yes: 3, no: 2 })).toBe(2.42);
+    expect(score({})).toBeNull();
+    expect(candidateScore(votes({ yes: 1 }), null)).toBeNull();
+  });
+
+  it('sorts by score, equal scores by the general average, and candidates without votes last either way', () => {
+    const table = [
+      resultRow({ candidate_id: 'c1', number: 1, recommendations: { yes: 4 }, general_avg: 4 }),
+      resultRow({ candidate_id: 'c2', number: 2, recommendations: {}, general_avg: null }),
+      resultRow({ candidate_id: 'c3', number: 3, recommendations: { strong_yes: 3 }, general_avg: 3 }),
+      resultRow({ candidate_id: 'c4', number: 4, recommendations: { strong_yes: 1 }, general_avg: 3 }),
+      resultRow({ candidate_id: 'c5', number: 5, recommendations: { strong_yes: 1 }, general_avg: 4.5 }),
+    ];
+    const average = averageVotePoints(table);
+    expect(sortRows(table, { key: 'score', dir: 'desc' }, average).map((r) => r.number)).toEqual([3, 5, 4, 1, 2]);
+    expect(sortRows(table, { key: 'score', dir: 'asc' }, average).map((r) => r.number)).toEqual([1, 4, 5, 3, 2]);
   });
 });
 
