@@ -111,6 +111,44 @@ describe('the results page', () => {
     expect(numbers()).toEqual(['#2', '#7', '#9']);
   });
 
+  it('keeps the filters and sort after opening a candidate and coming back', async () => {
+    const { router } = await openResults('/results', { candidateRecord: vi.fn(async () => candidateRecordFor(candidateRow())) });
+    await screen.findByRole('table', { name: 'Results' });
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'interviewed');
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Find' }), 'a');
+    await userEvent.click(screen.getByRole('button', { name: 'General avg' }));
+    const filtered = () => {
+      expect(screen.getByRole('combobox', { name: 'Status' })).toHaveValue('interviewed');
+      expect(screen.getByRole('searchbox', { name: 'Find' })).toHaveValue('a');
+      expect(screen.getByRole('columnheader', { name: 'General avg' })).toHaveAttribute('aria-sort', 'descending');
+      expect(numbers()).toEqual(['#9', '#7']);
+    };
+    filtered();
+    const search = '?status=interviewed&q=a&sort=general_avg&dir=desc';
+    await waitFor(() => expect(router.state.location.search).toBe(search));
+    expect(router.state.historyAction).toBe('REPLACE'); // typing and choosing don't fill up Back
+
+    await userEvent.click(screen.getByRole('link', { name: 'Sara Ahmed' }));
+    expect(await screen.findByRole('link', { name: '← All results' })).toHaveAttribute('href', `/results${search}`);
+    await userEvent.click(screen.getByRole('link', { name: '← All results' }));
+    await screen.findByRole('table', { name: 'Results' });
+    filtered();
+
+    await userEvent.click(screen.getByRole('link', { name: 'Sara Ahmed' }));
+    await screen.findByRole('link', { name: '← All results' });
+    await router.navigate(-1); // the browser's Back button
+    await screen.findByRole('table', { name: 'Results' });
+    filtered();
+  });
+
+  it('opens with the filters and sort in the address, as after a reload', async () => {
+    await openResults('/results?status=interviewed&q=a&sort=general_avg&dir=desc');
+    await screen.findByRole('table', { name: 'Results' });
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveValue('interviewed');
+    expect(screen.getByRole('searchbox', { name: 'Find' })).toHaveValue('a');
+    expect(numbers()).toEqual(['#9', '#7']);
+  });
+
   it('records a decision', async () => {
     const { api } = await openResults();
     await screen.findByRole('table', { name: 'Results' });

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 import { buttonClasses } from '../components/ActionButton.tsx';
 import { ActionProvider } from '../components/ActionProvider.tsx';
 import { FullPageMessage } from '../components/FullPageMessage.tsx';
@@ -16,10 +16,17 @@ import { DecisionSelect } from './DecisionSelect.tsx';
 const clock = (iso: string) => new Date(parseServerTime(iso)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const recommendationLabel = (value: string) => RECOMMENDATIONS.find((r) => r.value === value)?.label ?? value;
 
+/** The filtered table this was opened from (the results page sends it along), else the whole one. */
+function resultsAddress(state: unknown): string {
+  const back = (state as { back?: unknown } | null)?.back;
+  return typeof back === 'string' && /^\/results(\?|$)/.test(back) ? back : '/results';
+}
+
 /** /results/:candidateId: answers, every interview (panel, times, duration), chats and evaluations. */
 export function CandidateRecordPage() {
   const api = useApi();
   const { candidateId = '' } = useParams();
+  const back = resultsAddress(useLocation().state);
   const [record, setRecord] = useState<CandidateRecord | null>(null);
   const [criteria, setCriteria] = useState<Criterion[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +53,7 @@ export function CandidateRecordPage() {
     return (
       <FullPageMessage title={error ? "Couldn't load this candidate" : 'Loading…'}>
         {error && <p>{error}</p>}
-        <Link className={`${buttonClasses('secondary', 'md')} mt-3`} to="/results">
+        <Link className={`${buttonClasses('secondary', 'md')} mt-3`} to={back}>
           ← All results
         </Link>
       </FullPageMessage>
@@ -58,7 +65,7 @@ export function CandidateRecordPage() {
     <ActionProvider onSettled={() => void load()}>
       <main className="space-y-4 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link className="text-sm font-medium text-brand-700 hover:underline" to="/results">
+          <Link className="text-sm font-medium text-brand-700 hover:underline" to={back}>
             ← All results
           </Link>
           <label className="flex items-center gap-2 text-sm font-medium">
