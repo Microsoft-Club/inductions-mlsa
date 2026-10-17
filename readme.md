@@ -8,6 +8,9 @@ reach the app by themselves: `docs/google-form-sync.md`.
 
 ## Local development
 
+**Setting up on a new machine? Follow [`SETUP.md`](SETUP.md)** for every step: prerequisites, the first run,
+the sign-in accounts, running the checks and troubleshooting. The commands below are the short version.
+
 Requirements: Node 24+, Docker (your user must be in the `docker` group).
 
 ```bash
