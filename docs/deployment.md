@@ -113,7 +113,7 @@ On the Pages URL:
    **End interview** here: it marks a real candidate as interviewed, and on the day they can't be
    checked in. (Better still, run this whole check on the dry-run project from step 7.)
 
-## 7. Before induction day
+## 7. Before induction day (!! need to change this !!)
 
 - **Un-pause the project.** Free Supabase projects pause after 7 days without activity; open the
   dashboard and restore it a day early.
@@ -148,7 +148,7 @@ On the Pages URL:
 - **Dry run:** rehearse on a separate free Supabase project (repeat steps 1–5 with it and a second
   Pages project), not on the production data.
 
-## 8. After the interviews
+## 8. After the interviews (!! will need to change it !!)
 
 1. **Results:** check evaluations, set each decision, and export both CSV files.
 2. **Publish results.** Evaluations lock; `/selected` lists everyone marked Selected. Unpublish if
